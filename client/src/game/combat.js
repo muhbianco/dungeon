@@ -83,6 +83,8 @@ export function createEnemy(floor, waveIndex) {
   const scale = floorScale(floor) * (1 + waveIndex * 0.08);
   const maxHp = Math.floor(type.baseHp * scale);
   const damage = Math.max(1, Math.floor(type.baseDmg * scale));
+  // Recompensas escalam com o andar (e um pouco com a wave)
+  const rewardScale = (1 + (Math.max(1, floor) - 1) * 0.38) * (1 + waveIndex * 0.06);
   return {
     id: `${type.id}-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
     typeId: type.id,
@@ -90,8 +92,8 @@ export function createEnemy(floor, waveIndex) {
     maxHp,
     hp: maxHp,
     damage,
-    xp: Math.floor(type.xp * (1 + (floor - 1) * 0.1)),
-    gold: Math.floor(type.gold * (1 + (floor - 1) * 0.1)),
+    xp: Math.max(1, Math.floor(type.xp * rewardScale)),
+    gold: Math.max(1, Math.floor(type.gold * rewardScale)),
     attackIntervalMs: Math.max(420, 1100 - floor * 18 - waveIndex * 20),
   };
 }

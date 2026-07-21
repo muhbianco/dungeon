@@ -363,10 +363,6 @@ export default function App() {
           upgrades={profile?.upgrades || {}}
           busy={busy}
           onDie={finishRun}
-          onAbandon={() => {
-            setSelectedClass(null);
-            setScreen(SCREENS.MENU);
-          }}
         />
       )}
 

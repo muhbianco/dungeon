@@ -91,7 +91,7 @@ export const CLASS_EQUIP_CATALOG = Object.freeze({
   },
   archer: {
     helmet: { key: 'hunter_hood', name: 'Capuz do Caçador', baseCost: 40, stat: 'dex', perLevel: 1 },
-    chest: { key: 'leather_vest', name: 'Colete de Couro', baseCost: 60, stat: 'agi', perLevel: 1 },
+    chest: { key: 'leather_vest', name: 'Colete de Couro', baseCost: 60, stat: 'con', perLevel: 1 },
     gloves: { key: 'aim_gloves', name: 'Luvas de Mira', baseCost: 35, stat: 'dex', perLevel: 1 },
     pants: { key: 'ranger_pants', name: 'Calças do Patrulheiro', baseCost: 45, stat: 'agi', perLevel: 1 },
     boots: { key: 'swift_boots', name: 'Botas Velozes', baseCost: 40, stat: 'agi', perLevel: 1.5 },
@@ -101,9 +101,9 @@ export const CLASS_EQUIP_CATALOG = Object.freeze({
   },
   mage: {
     helmet: { key: 'arcane_hood', name: 'Capuz Arcano', baseCost: 40, stat: 'int', perLevel: 1 },
-    chest: { key: 'mage_robe', name: 'Manto Arcano', baseCost: 60, stat: 'int', perLevel: 1 },
+    chest: { key: 'mage_robe', name: 'Manto Arcano', baseCost: 60, stat: 'con', perLevel: 1 },
     gloves: { key: 'rune_gloves', name: 'Luvas Rúnicas', baseCost: 35, stat: 'int', perLevel: 1.5 },
-    pants: { key: 'silk_pants', name: 'Calças de Seda', baseCost: 45, stat: 'con', perLevel: 1 },
+    pants: { key: 'silk_pants', name: 'Calças de Seda', baseCost: 45, stat: 'int', perLevel: 1 },
     boots: { key: 'channel_boots', name: 'Botas do Canalizador', baseCost: 40, stat: 'agi', perLevel: 1 },
     ring1: { key: 'focus_ring', name: 'Anel do Foco', baseCost: 55, stat: 'int', perLevel: 1 },
     ring2: { key: 'ward_ring', name: 'Anel de Proteção', baseCost: 55, stat: 'defense', perLevel: 1.5 },
@@ -209,35 +209,10 @@ export function equipmentBonuses(classId, equipmentRows = []) {
   return bonus;
 }
 
-/** Essências pela tabela do GDD (interpolação linear entre marcos). */
+/** Essências — escala forte com o andar máximo da run. */
 export function essencesForFloor(maxFloor) {
   const floor = Math.max(0, Math.floor(Number(maxFloor) || 0));
   if (floor <= 0) return 0;
-
-  const table = [
-    [1, 1],
-    [5, 5],
-    [10, 12],
-    [15, 20],
-    [20, 35],
-    [30, 60],
-  ];
-
-  if (floor >= table[table.length - 1][0]) {
-    const [f0, e0] = table[table.length - 2];
-    const [f1, e1] = table[table.length - 1];
-    const slope = (e1 - e0) / (f1 - f0);
-    return Math.floor(e1 + (floor - f1) * slope);
-  }
-
-  for (let i = 0; i < table.length - 1; i += 1) {
-    const [f0, e0] = table[i];
-    const [f1, e1] = table[i + 1];
-    if (floor >= f0 && floor <= f1) {
-      const t = (floor - f0) / (f1 - f0);
-      return Math.floor(e0 + t * (e1 - e0));
-    }
-  }
-
-  return table[0][1];
+  // Andar 1≈4 · 5≈35 · 10≈110 · 20≈380 · 30≈780
+  return Math.max(1, Math.floor(3.2 * (floor ** 1.55) + floor * 2));
 }

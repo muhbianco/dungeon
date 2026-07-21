@@ -10,6 +10,10 @@ import {
   summarizeThreat,
 } from '../game/combat.js';
 
+const TICK_MS = 50;
+const MAX_CATCH_UP_MS = 2500;
+const STEP_MS = 100;
+
 function hpPct(current, max) {
   if (!max) return 0;
   return Math.max(0, Math.min(100, (current / max) * 100));
@@ -21,7 +25,6 @@ export default function CombatScreen({
   upgrades,
   busy,
   onDie,
-  onAbandon,
 }) {
   const startedAt = useRef(Date.now());
   const playerRef = useRef(buildPlayerCombatant(classData, upgrades, {
@@ -33,11 +36,10 @@ export default function CombatScreen({
   const floorRef = useRef(1);
   const maxFloorRef = useRef(1);
   const runRef = useRef({ kills: 0, gold: 0, xp: 0 });
-  const timersRef = useRef({ player: 0, enemy: 0, last: performance.now() });
+  const timersRef = useRef({ player: 0, enemy: 0, last: Date.now() });
   const logRef = useRef(['A masmorra se abre. Wave 1 começa.']);
-  const pausedRef = useRef(false);
+  const deadHandledRef = useRef(false);
 
-  const [paused, setPaused] = useState(false);
   const [ui, setUi] = useState(() => snapshot());
 
   function snapshot() {
@@ -79,15 +81,14 @@ export default function CombatScreen({
     logRef.current = [message, ...logRef.current].slice(0, 40);
   }
 
-  function resetFloor(nextFloor, { heal = false, reason } = {}) {
+  function resetFloor(nextFloor, { reason } = {}) {
     const f = Math.max(1, nextFloor);
     floorRef.current = f;
     maxFloorRef.current = Math.max(maxFloorRef.current, f);
     encounterRef.current = createFloorEncounter(f);
     timersRef.current.player = 0;
     timersRef.current.enemy = 0;
-    timersRef.current.last = performance.now();
-    if (heal) playerRef.current.hp = playerRef.current.maxHp;
+    timersRef.current.last = Date.now();
     pushLog(`${reason || `Andar ${f}`}. Precisa eliminar ${summarizeThreat(f).killsRequired} inimigos.`);
     refresh();
   }
@@ -100,7 +101,6 @@ export default function CombatScreen({
   function retreat() {
     if (floorRef.current <= 1 || playerRef.current.hp <= 0) return;
     resetFloor(floorRef.current - 1, {
-      heal: true,
       reason: `Recuou para o andar ${floorRef.current - 1}`,
     });
   }
@@ -116,95 +116,87 @@ export default function CombatScreen({
     };
   }
 
-  useEffect(() => {
-    pausedRef.current = paused;
-  }, [paused]);
+  function simulateStep(dt) {
+    const player = playerRef.current;
+    const encounter = encounterRef.current;
+    if (player.hp <= 0) return;
 
-  useEffect(() => {
-    let raf = 0;
-    let uiAcc = 0;
-    let dirty = false;
+    applyRegen(player, dt);
 
-    const tick = (now) => {
-      const dt = Math.min(100, now - timersRef.current.last);
-      timersRef.current.last = now;
-      uiAcc += dt;
+    let enemy = getActiveEnemy(encounter);
+    if (!enemy) {
+      const status = advanceWaveOrComplete(encounter);
+      if (status === 'next_wave') pushLog(`Wave ${encounter.waveIndex + 1} chegou!`);
+      if (status === 'farm_wave') pushLog(`Farm wave ${encounter.waveIndex + 1} — pode continuar no andar.`);
+      if (status === 'unlocked') {
+        pushLog(`Escada liberada no andar ${encounter.floor}. Pode descer ou continuar farmando.`);
+      }
+      return;
+    }
 
-      const player = playerRef.current;
-      const encounter = encounterRef.current;
+    timersRef.current.player += dt;
+    timersRef.current.enemy += dt;
 
-      if (!pausedRef.current && player.hp > 0) {
-        applyRegen(player, dt);
-        dirty = true;
+    if (timersRef.current.player >= player.attackIntervalMs) {
+      timersRef.current.player = 0;
+      const hit = playerAttack(player, enemy);
+      pushLog(
+        hit.crit
+          ? `Crítico em ${enemy.name}: ${hit.damage}`
+          : `Você acerta ${enemy.name}: ${hit.damage}`
+      );
 
-        let enemy = getActiveEnemy(encounter);
-        if (!enemy) {
-          const status = advanceWaveOrComplete(encounter);
-          if (status === 'next_wave') pushLog(`Wave ${encounter.waveIndex + 1} chegou!`);
-          if (status === 'farm_wave') pushLog(`Farm wave ${encounter.waveIndex + 1} — pode continuar no andar.`);
-          if (status === 'unlocked') {
-            pushLog(`Escada liberada no andar ${encounter.floor}. Pode descer ou continuar farmando.`);
-          }
-        } else {
-          timersRef.current.player += dt;
-          timersRef.current.enemy += dt;
+      if (hit.killed) {
+        encounter.kills += 1;
+        const goldGain = Math.floor(enemy.gold * player.goldGainMult);
+        const xpGain = Math.floor(enemy.xp * player.xpGainMult);
+        runRef.current.kills += 1;
+        runRef.current.gold += goldGain;
+        runRef.current.xp += xpGain;
+        pushLog(`${enemy.name} derrotado (+${xpGain} XP, +${goldGain} ouro)`);
+        timersRef.current.enemy = 0;
 
-          if (timersRef.current.player >= player.attackIntervalMs) {
-            timersRef.current.player = 0;
-            const hit = playerAttack(player, enemy);
-            pushLog(
-              hit.crit
-                ? `Crítico em ${enemy.name}: ${hit.damage}`
-                : `Você acerta ${enemy.name}: ${hit.damage}`
-            );
-
-            if (hit.killed) {
-              encounter.kills += 1;
-              const goldGain = Math.floor(enemy.gold * player.goldGainMult);
-              const xpGain = Math.floor(enemy.xp * player.xpGainMult);
-              runRef.current.kills += 1;
-              runRef.current.gold += goldGain;
-              runRef.current.xp += xpGain;
-              pushLog(`${enemy.name} derrotado (+${xpGain} XP, +${goldGain} ouro)`);
-              timersRef.current.enemy = 0;
-
-              const status = advanceWaveOrComplete(encounter);
-              if (status === 'next_wave') pushLog(`Wave ${encounter.waveIndex + 1} chegou!`);
-              if (status === 'farm_wave') pushLog(`Farm wave ${encounter.waveIndex + 1} — pode continuar no andar.`);
-              if (status === 'unlocked') {
-                pushLog(`Escada liberada no andar ${encounter.floor}. Pode descer ou continuar farmando.`);
-              }
-            }
-          }
-
-          enemy = getActiveEnemy(encounter);
-          if (enemy && timersRef.current.enemy >= enemy.attackIntervalMs) {
-            timersRef.current.enemy = 0;
-            const hit = enemyAttack(enemy, player);
-            pushLog(`${enemy.name} acerta você: ${hit.damage}`);
-            if (hit.dead) pushLog('Você caiu na masmorra…');
-          }
+        const status = advanceWaveOrComplete(encounter);
+        if (status === 'next_wave') pushLog(`Wave ${encounter.waveIndex + 1} chegou!`);
+        if (status === 'farm_wave') pushLog(`Farm wave ${encounter.waveIndex + 1} — pode continuar no andar.`);
+        if (status === 'unlocked') {
+          pushLog(`Escada liberada no andar ${encounter.floor}. Pode descer ou continuar farmando.`);
         }
       }
+    }
 
-      if (dirty && uiAcc >= 80) {
-        uiAcc = 0;
-        dirty = false;
-        refresh();
-      }
-
-      raf = requestAnimationFrame(tick);
-    };
-
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, []);
+    enemy = getActiveEnemy(encounter);
+    if (enemy && timersRef.current.enemy >= enemy.attackIntervalMs) {
+      timersRef.current.enemy = 0;
+      const hit = enemyAttack(enemy, player);
+      pushLog(`${enemy.name} acerta você: ${hit.damage}`);
+      if (hit.dead) pushLog('Você caiu na masmorra…');
+    }
+  }
 
   useEffect(() => {
-    if (!ui.dead) return undefined;
-    const t = setTimeout(() => onDie(endPayload()), 650);
-    return () => clearTimeout(t);
-  }, [ui.dead]); // eslint-disable-line react-hooks/exhaustive-deps
+    // setInterval + Date.now: continua mesmo com aba em background / Alt+Tab
+    const id = setInterval(() => {
+      const now = Date.now();
+      let remaining = Math.min(MAX_CATCH_UP_MS, now - timersRef.current.last);
+      timersRef.current.last = now;
+
+      while (remaining > 0 && playerRef.current.hp > 0) {
+        const step = Math.min(STEP_MS, remaining);
+        simulateStep(step);
+        remaining -= step;
+      }
+
+      refresh();
+
+      if (playerRef.current.hp <= 0 && !deadHandledRef.current) {
+        deadHandledRef.current = true;
+        setTimeout(() => onDie(endPayload()), 650);
+      }
+    }, TICK_MS);
+
+    return () => clearInterval(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const threat = useMemo(() => summarizeThreat(ui.floor), [ui.floor]);
 
@@ -293,22 +285,11 @@ export default function CombatScreen({
         </button>
         <button
           type="button"
-          className="ghost"
-          disabled={ui.dead || busy}
-          onClick={() => setPaused((p) => !p)}
-        >
-          {paused ? 'Retomar' : 'Pausar'}
-        </button>
-        <button
-          type="button"
           className="danger"
           disabled={busy}
           onClick={() => onDie(endPayload())}
         >
           Morrer / Encerrar Run
-        </button>
-        <button type="button" className="ghost" disabled={busy} onClick={onAbandon}>
-          Abandonar
         </button>
       </div>
 
