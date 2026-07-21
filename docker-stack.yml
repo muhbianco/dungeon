@@ -7,8 +7,10 @@
 #
 # Fluxo:
 # 1. ./build.sh prod
-# 2. Portainer → Stacks → colar este YAML → preencher DB_* → Deploy
-# 3. No boot o app cria o database + tabelas (sql/schema.sql) sozinho
+# 2. Portainer → Stacks → colar este YAML → preencher DB_* + Discord/SESSION → Deploy
+# 3. No Discord Developer Portal, adicionar redirect:
+#    https://dungeon.muhbianco.com.br/auth/discord/callback
+# 4. No boot o app cria/atualiza o database + tabelas (sql/schema.sql)
 # =============================================================================
 
 version: "3.8"
@@ -26,6 +28,10 @@ services:
       DB_USER: ""
       DB_PASSWORD: ""
       DB_NAME: ""
+      DISCORD_CLIENT_ID: ""
+      DISCORD_CLIENT_SECRET: ""
+      DISCORD_SERVER_ID: ""
+      SESSION_SECRET: ""
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:

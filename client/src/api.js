@@ -1,20 +1,9 @@
-const PLAYER_KEY = 'dd_player_key';
-
-export function getStoredPlayerKey() {
-  return localStorage.getItem(PLAYER_KEY);
-}
-
-export function storePlayerKey(key) {
-  localStorage.setItem(PLAYER_KEY, key);
-}
-
-async function request(path, { method = 'GET', body, playerKey } = {}) {
+async function request(path, { method = 'GET', body } = {}) {
   const headers = { 'Content-Type': 'application/json' };
-  if (playerKey) headers['x-player-key'] = playerKey;
-
   const res = await fetch(path, {
     method,
     headers,
+    credentials: 'include',
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -26,25 +15,27 @@ async function request(path, { method = 'GET', body, playerKey } = {}) {
 }
 
 export const api = {
-  bootstrap: (playerKey, displayName) =>
-    request('/api/player/bootstrap', {
-      method: 'POST',
-      body: { playerKey, displayName },
-    }),
-  me: (playerKey) => request('/api/player/me', { playerKey }),
+  authStatus: () => request('/auth/status'),
+  logout: () => request('/auth/logout', { method: 'POST' }),
+  me: () => request('/api/player/me'),
   meta: () => request('/api/meta'),
-  endRun: (playerKey, payload) =>
-    request('/api/player/run-end', { method: 'POST', body: payload, playerKey }),
-  buyUpgrade: (playerKey, upgradeKey) =>
+  ensureCharacter: (classId) =>
+    request('/api/player/character', { method: 'POST', body: { classId } }),
+  endRun: (payload) =>
+    request('/api/player/run-end', { method: 'POST', body: payload }),
+  buyUpgrade: (upgradeKey) =>
     request('/api/player/upgrades/buy', {
       method: 'POST',
       body: { upgradeKey },
-      playerKey,
     }),
-  saveSettings: (playerKey, settings) =>
+  buyEquipment: (classId, slot) =>
+    request('/api/player/equipment/buy', {
+      method: 'POST',
+      body: { classId, slot },
+    }),
+  saveSettings: (settings) =>
     request('/api/player/settings', {
       method: 'PUT',
       body: { settings },
-      playerKey,
     }),
 };

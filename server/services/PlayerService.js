@@ -1,65 +1,135 @@
 import { v4 as uuidv4 } from 'uuid';
 import PlayerFinder from '../finders/PlayerFinder.js';
+import CharacterFinder from '../finders/CharacterFinder.js';
+import EquipmentFinder from '../finders/EquipmentFinder.js';
 import UpgradeFinder from '../finders/UpgradeFinder.js';
 import StatsFinder from '../finders/StatsFinder.js';
 import SettingsFinder from '../finders/SettingsFinder.js';
-import { UPGRADE_CATALOG, essencesForFloor } from '../models/GameData.js';
+import {
+  UPGRADE_CATALOG,
+  CLASSES,
+  EQUIP_CATALOG,
+  EQUIP_SLOT_LABELS,
+  EQUIP_SLOTS,
+  attrsForLevel,
+  applyXp,
+  xpToNextLevel,
+  equipUpgradeCost,
+  equipmentBonuses,
+  essencesForFloor,
+} from '../models/GameData.js';
 
 function serializePlayer(player) {
   return {
     id: player.id,
     playerKey: player.player_key,
+    discordId: player.discord_id,
     displayName: player.display_name,
+    globalName: player.global_name,
+    avatar: player.avatar && player.discord_id
+      ? `https://cdn.discordapp.com/avatars/${player.discord_id}/${player.avatar}.${String(player.avatar).startsWith('a_') ? 'gif' : 'png'}?size=64`
+      : null,
     essences: player.essences,
+    gold: Number(player.gold || 0),
     maxFloorRecord: player.max_floor_record,
   };
 }
 
-export default class PlayerService {
-  static async bootstrap(playerKey = null, displayName = null) {
-    const key = playerKey || uuidv4();
-    let player = await PlayerFinder.findByKey(key);
-
-    if (!player) {
-      player = await PlayerFinder.create({
-        playerKey: key,
-        displayName: displayName || null,
-      });
-      await StatsFinder.getOrCreate(player.id);
-      await SettingsFinder.getOrCreate(player.id);
-    } else if (displayName && displayName !== player.display_name) {
-      player = await PlayerFinder.setDisplayName(player.id, displayName);
-    }
-
-    return this.getProfile(player.player_key);
+function serializeCharacter(row, equipmentRows = []) {
+  const bonuses = equipmentBonuses(equipmentRows);
+  const equipment = {};
+  for (const slot of EQUIP_SLOTS) {
+    equipment[slot] = null;
+  }
+  for (const eq of equipmentRows) {
+    const catalog = EQUIP_CATALOG[eq.slot];
+    equipment[eq.slot] = {
+      slot: eq.slot,
+      label: EQUIP_SLOT_LABELS[eq.slot],
+      itemKey: eq.item_key,
+      name: catalog?.name || eq.item_key,
+      itemLevel: eq.item_level,
+      rarity: eq.rarity,
+      nextCost: equipUpgradeCost(eq.slot, eq.item_level),
+    };
   }
 
-  static async getProfile(playerKey) {
-    const player = await PlayerFinder.findByKey(playerKey);
+  return {
+    id: row.id,
+    classId: row.class_id,
+    className: CLASSES[row.class_id]?.name || row.class_id,
+    level: row.level,
+    xp: row.xp,
+    xpToNext: xpToNextLevel(row.level),
+    attrs: {
+      str: row.str_stat,
+      con: row.con_stat,
+      agi: row.agi_stat,
+      dex: row.dex_stat,
+      int: row.int_stat,
+    },
+    equipmentBonuses: bonuses,
+    equipment,
+  };
+}
+
+export default class PlayerService {
+  static async loginFromDiscord(discordUser, avatarHash) {
+    const player = await PlayerFinder.upsertDiscord({
+      playerKey: uuidv4(),
+      discordId: String(discordUser.id),
+      displayName: discordUser.username || discordUser.global_name || 'Jogador',
+      globalName: discordUser.global_name || null,
+      avatar: avatarHash || null,
+    });
+    await StatsFinder.getOrCreate(player.id);
+    await SettingsFinder.getOrCreate(player.id);
+    return player;
+  }
+
+  static async getProfileById(playerId) {
+    const player = await PlayerFinder.findById(playerId);
     if (!player) {
       const err = new Error('Jogador não encontrado');
       err.status = 404;
       throw err;
     }
 
-    const [upgradesRows, stats, settings] = await Promise.all([
+    const [upgradesRows, stats, settings, characters] = await Promise.all([
       UpgradeFinder.listByPlayer(player.id),
       StatsFinder.getOrCreate(player.id),
       SettingsFinder.getOrCreate(player.id),
+      CharacterFinder.listByPlayer(player.id),
     ]);
 
     const upgrades = {};
-    for (const key of Object.keys(UPGRADE_CATALOG)) {
-      upgrades[key] = 0;
+    for (const key of Object.keys(UPGRADE_CATALOG)) upgrades[key] = 0;
+    for (const row of upgradesRows) upgrades[row.upgrade_key] = row.level;
+
+    const characterPayload = [];
+    for (const ch of characters) {
+      const eqs = await EquipmentFinder.listByCharacter(ch.id);
+      characterPayload.push(serializeCharacter(ch, eqs));
     }
-    for (const row of upgradesRows) {
-      upgrades[row.upgrade_key] = row.level;
+
+    const shop = {};
+    for (const slot of EQUIP_SLOTS) {
+      shop[slot] = {
+        slot,
+        label: EQUIP_SLOT_LABELS[slot],
+        ...EQUIP_CATALOG[slot],
+        buyCost: equipUpgradeCost(slot, 0),
+      };
     }
 
     return {
       player: serializePlayer(player),
       upgrades,
       catalog: UPGRADE_CATALOG,
+      characters: characterPayload,
+      shop,
+      slots: EQUIP_SLOTS,
+      slotLabels: EQUIP_SLOT_LABELS,
       stats: {
         runs: stats.runs,
         deaths: stats.deaths,
@@ -71,33 +141,62 @@ export default class PlayerService {
     };
   }
 
-  static async endRun(playerKey, payload = {}) {
-    const player = await PlayerFinder.findByKey(playerKey);
+  static async ensureCharacter(playerId, classId) {
+    const character = await CharacterFinder.getOrCreate(playerId, classId);
+    const eqs = await EquipmentFinder.listByCharacter(character.id);
+    return serializeCharacter(character, eqs);
+  }
+
+  static async endRun(playerId, payload = {}) {
+    const player = await PlayerFinder.findById(playerId);
     if (!player) {
       const err = new Error('Jogador não encontrado');
       err.status = 404;
       throw err;
     }
 
-    const maxFloor = Math.max(0, Math.floor(Number(payload.maxFloor) || 0));
-    const awarded = essencesForFloor(maxFloor);
-    const nextRecord = Math.max(player.max_floor_record, maxFloor);
-    const nextEssences = player.essences + awarded;
+    const classId = payload.classId;
+    if (!CLASSES[classId]) {
+      const err = new Error('Classe inválida');
+      err.status = 400;
+      throw err;
+    }
 
-    const updated = await PlayerFinder.updateProgress(player.id, {
-      essences: nextEssences,
-      maxFloorRecord: nextRecord,
+    const character = await CharacterFinder.getOrCreate(playerId, classId);
+    const xpGained = Math.max(0, Math.floor(Number(payload.xpGained) || 0));
+    const goldGained = Math.max(0, Math.floor(Number(payload.goldEarned) || 0));
+    const maxFloor = Math.max(0, Math.floor(Number(payload.maxFloor) || 0));
+
+    const progress = applyXp(character.level, character.xp, xpGained);
+    const attrs = attrsForLevel(classId, progress.level);
+    const updatedChar = await CharacterFinder.saveProgress(character.id, {
+      level: progress.level,
+      xp: progress.xp,
+      attrs,
+    });
+
+    const awarded = essencesForFloor(maxFloor);
+    const updatedPlayer = await PlayerFinder.updateProgress(player.id, {
+      essences: player.essences + awarded,
+      maxFloorRecord: Math.max(player.max_floor_record, maxFloor),
+      gold: Number(player.gold || 0) + goldGained,
     });
 
     const stats = await StatsFinder.incrementRunEnd(player.id, {
       kills: payload.kills,
-      goldEarned: payload.goldEarned,
+      goldEarned: goldGained,
       playTimeSeconds: payload.playTimeSeconds,
     });
 
+    const eqs = await EquipmentFinder.listByCharacter(updatedChar.id);
+
     return {
-      player: serializePlayer(updated),
+      player: serializePlayer(updatedPlayer),
+      character: serializeCharacter(updatedChar, eqs),
       awardedEssences: awarded,
+      xpGained,
+      goldBanked: goldGained,
+      levelsGained: progress.levelsGained,
       stats: {
         runs: stats.runs,
         deaths: stats.deaths,
@@ -108,14 +207,53 @@ export default class PlayerService {
     };
   }
 
-  static async buyUpgrade(playerKey, upgradeKey) {
+  static async buyOrUpgradeEquip(playerId, classId, slot) {
+    if (!EQUIP_SLOTS.includes(slot) || !EQUIP_CATALOG[slot]) {
+      const err = new Error('Slot inválido');
+      err.status = 400;
+      throw err;
+    }
+    if (!CLASSES[classId]) {
+      const err = new Error('Classe inválida');
+      err.status = 400;
+      throw err;
+    }
+
+    const character = await CharacterFinder.getOrCreate(playerId, classId);
+    const current = await EquipmentFinder.getSlot(character.id, slot);
+    const nextLevel = current ? current.item_level + 1 : 1;
+    if (nextLevel > 20) {
+      const err = new Error('Equipamento no nível máximo');
+      err.status = 400;
+      throw err;
+    }
+
+    const cost = equipUpgradeCost(slot, current ? current.item_level : 0);
+    await PlayerFinder.spendGold(playerId, cost);
+    const item = await EquipmentFinder.upsert(character.id, slot, nextLevel);
+    const player = await PlayerFinder.findById(playerId);
+    const refreshed = await CharacterFinder.findById(character.id);
+    const eqs = await EquipmentFinder.listByCharacter(character.id);
+
+    return {
+      player: serializePlayer(player),
+      character: serializeCharacter(refreshed, eqs),
+      item: {
+        slot: item.slot,
+        itemLevel: item.item_level,
+        spent: cost,
+      },
+    };
+  }
+
+  static async buyUpgrade(playerId, upgradeKey) {
     if (!UPGRADE_CATALOG[upgradeKey]) {
       const err = new Error('Melhoria inválida');
       err.status = 400;
       throw err;
     }
 
-    const player = await PlayerFinder.findByKey(playerKey);
+    const player = await PlayerFinder.findById(playerId);
     if (!player) {
       const err = new Error('Jogador não encontrado');
       err.status = 404;
@@ -142,6 +280,7 @@ export default class PlayerService {
     const updated = await PlayerFinder.updateProgress(player.id, {
       essences: player.essences - cost,
       maxFloorRecord: player.max_floor_record,
+      gold: Number(player.gold || 0),
     });
 
     return {
@@ -152,13 +291,7 @@ export default class PlayerService {
     };
   }
 
-  static async saveSettings(playerKey, settings) {
-    const player = await PlayerFinder.findByKey(playerKey);
-    if (!player) {
-      const err = new Error('Jogador não encontrado');
-      err.status = 404;
-      throw err;
-    }
-    return SettingsFinder.save(player.id, settings || {});
+  static async saveSettings(playerId, settings) {
+    return SettingsFinder.save(playerId, settings || {});
   }
 }

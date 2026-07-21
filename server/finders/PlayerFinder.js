@@ -1,12 +1,12 @@
 import { query } from '../db.js';
 
+const PLAYER_COLS = `id, player_key, discord_id, display_name, global_name, avatar,
+  essences, gold, max_floor_record, last_login, created_at, updated_at`;
+
 export default class PlayerFinder {
   static async findByKey(playerKey) {
     const rows = await query(
-      `SELECT id, player_key, display_name, essences, max_floor_record, created_at, updated_at
-       FROM players
-       WHERE player_key = :playerKey
-       LIMIT 1`,
+      `SELECT ${PLAYER_COLS} FROM players WHERE player_key = :playerKey LIMIT 1`,
       { playerKey }
     );
     return rows[0] || null;
@@ -14,40 +14,96 @@ export default class PlayerFinder {
 
   static async findById(id) {
     const rows = await query(
-      `SELECT id, player_key, display_name, essences, max_floor_record, created_at, updated_at
-       FROM players
-       WHERE id = :id
-       LIMIT 1`,
+      `SELECT ${PLAYER_COLS} FROM players WHERE id = :id LIMIT 1`,
       { id }
     );
     return rows[0] || null;
   }
 
-  static async create({ playerKey, displayName = null }) {
+  static async findByDiscordId(discordId) {
+    const rows = await query(
+      `SELECT ${PLAYER_COLS} FROM players WHERE discord_id = :discordId LIMIT 1`,
+      { discordId }
+    );
+    return rows[0] || null;
+  }
+
+  static async create({
+    playerKey,
+    discordId = null,
+    displayName = null,
+    globalName = null,
+    avatar = null,
+  }) {
     const result = await query(
-      `INSERT INTO players (player_key, display_name)
-       VALUES (:playerKey, :displayName)`,
-      { playerKey, displayName }
+      `INSERT INTO players (player_key, discord_id, display_name, global_name, avatar, last_login)
+       VALUES (:playerKey, :discordId, :displayName, :globalName, :avatar, NOW())`,
+      { playerKey, discordId, displayName, globalName, avatar }
     );
     return this.findById(result.insertId);
   }
 
-  static async updateProgress(playerId, { essences, maxFloorRecord }) {
+  static async upsertDiscord({
+    playerKey,
+    discordId,
+    displayName,
+    globalName,
+    avatar,
+  }) {
+    const existing = await this.findByDiscordId(discordId);
+    if (existing) {
+      await query(
+        `UPDATE players
+         SET display_name = :displayName,
+             global_name = :globalName,
+             avatar = :avatar,
+             last_login = NOW()
+         WHERE id = :id`,
+        { id: existing.id, displayName, globalName, avatar }
+      );
+      return this.findById(existing.id);
+    }
+    return this.create({
+      playerKey,
+      discordId,
+      displayName,
+      globalName,
+      avatar,
+    });
+  }
+
+  static async updateProgress(playerId, { essences, maxFloorRecord, gold }) {
     await query(
       `UPDATE players
        SET essences = :essences,
-           max_floor_record = :maxFloorRecord
+           max_floor_record = :maxFloorRecord,
+           gold = :gold
        WHERE id = :playerId`,
-      { playerId, essences, maxFloorRecord }
+      { playerId, essences, maxFloorRecord, gold }
     );
     return this.findById(playerId);
   }
 
-  static async setDisplayName(playerId, displayName) {
+  static async addGold(playerId, amount) {
     await query(
-      `UPDATE players SET display_name = :displayName WHERE id = :playerId`,
-      { playerId, displayName }
+      `UPDATE players SET gold = gold + :amount WHERE id = :playerId`,
+      { playerId, amount: Math.max(0, Math.floor(amount) || 0) }
     );
+    return this.findById(playerId);
+  }
+
+  static async spendGold(playerId, amount) {
+    const result = await query(
+      `UPDATE players
+       SET gold = gold - :amount
+       WHERE id = :playerId AND gold >= :amount`,
+      { playerId, amount: Math.max(0, Math.floor(amount) || 0) }
+    );
+    if (!result.affectedRows) {
+      const err = new Error('Ouro insuficiente');
+      err.status = 400;
+      throw err;
+    }
     return this.findById(playerId);
   }
 }

@@ -24,12 +24,21 @@ export function wavesForFloor(floor) {
   return 3;
 }
 
-export function buildPlayerCombatant(classData, upgrades = {}) {
-  const attrs = classData?.attrs || { str: 4, con: 4, agi: 4, dex: 4, int: 4 };
+export function buildPlayerCombatant(classData, upgrades = {}, options = {}) {
+  const baseAttrs = options.attrs || classData?.attrs || { str: 4, con: 4, agi: 4, dex: 4, int: 4 };
+  const equip = options.equipmentBonuses || {};
+  const attrs = {
+    str: (baseAttrs.str || 0) + (equip.str || 0),
+    con: (baseAttrs.con || 0) + (equip.con || 0),
+    agi: (baseAttrs.agi || 0) + (equip.agi || 0),
+    dex: (baseAttrs.dex || 0) + (equip.dex || 0),
+    int: (baseAttrs.int || 0) + (equip.int || 0),
+  };
   const u = (key) => upgrades[key] || 0;
+  const equipDefense = equip.defense || 0;
 
   const maxHp = Math.floor((40 + attrs.con * 8) * (1 + u('max_hp') * 0.08));
-  let defense = attrs.con * 1.2 + u('defense') * 2;
+  let defense = attrs.con * 1.2 + u('defense') * 2 + equipDefense;
   let physical = attrs.str * 2.2 + u('physical_damage') * 2.5;
   let magic = attrs.int * 2.4 + u('magic_damage') * 2.5;
   let critChance = 0.04 + attrs.dex * 0.008 + u('crit_chance') * 0.015;
@@ -45,6 +54,7 @@ export function buildPlayerCombatant(classData, upgrades = {}) {
   return {
     name: classData?.name || 'Herói',
     classId: classData?.id || 'warrior',
+    level: options.level || 1,
     maxHp,
     hp: maxHp,
     defense,

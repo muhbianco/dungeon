@@ -17,13 +17,18 @@ function hpPct(current, max) {
 
 export default function CombatScreen({
   classData,
+  character,
   upgrades,
   busy,
   onDie,
   onAbandon,
 }) {
   const startedAt = useRef(Date.now());
-  const playerRef = useRef(buildPlayerCombatant(classData, upgrades));
+  const playerRef = useRef(buildPlayerCombatant(classData, upgrades, {
+    attrs: character?.attrs,
+    equipmentBonuses: character?.equipmentBonuses,
+    level: character?.level || 1,
+  }));
   const encounterRef = useRef(createFloorEncounter(1));
   const floorRef = useRef(1);
   const maxFloorRef = useRef(1);
@@ -102,9 +107,11 @@ export default function CombatScreen({
 
   function endPayload() {
     return {
+      classId: classData?.id,
       maxFloor: maxFloorRef.current,
       kills: runRef.current.kills,
       goldEarned: runRef.current.gold,
+      xpGained: runRef.current.xp,
       playTimeSeconds: Math.max(1, Math.floor((Date.now() - startedAt.current) / 1000)),
     };
   }
@@ -199,7 +206,7 @@ export default function CombatScreen({
     <section className="panel combat">
       <div className="combat-head">
         <div>
-          <h2>Expedição — {classData?.name}</h2>
+          <h2>Expedição — {classData?.name} · Nv. {character?.level || 1}</h2>
           <p className="muted">
             Andar <strong>{ui.floor}</strong> · Ameaça <strong>{threat.label}</strong> (x{threat.scale.toFixed(2)})
           </p>
