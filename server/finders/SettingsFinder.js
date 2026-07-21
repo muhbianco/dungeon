@@ -27,7 +27,7 @@ export default class SettingsFinder {
     const settings = this.defaults();
     await query(
       `INSERT INTO player_settings (player_id, settings_json)
-       VALUES (:playerId, CAST(:settingsJson AS JSON))`,
+       VALUES (:playerId, :settingsJson)`,
       { playerId, settingsJson: JSON.stringify(settings) }
     );
     return settings;
@@ -37,7 +37,7 @@ export default class SettingsFinder {
     const merged = { ...this.defaults(), ...settings };
     await query(
       `INSERT INTO player_settings (player_id, settings_json)
-       VALUES (:playerId, CAST(:settingsJson AS JSON))
+       VALUES (:playerId, :settingsJson)
        ON DUPLICATE KEY UPDATE settings_json = VALUES(settings_json)`,
       { playerId, settingsJson: JSON.stringify(merged) }
     );
