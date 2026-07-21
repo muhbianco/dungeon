@@ -1,0 +1,11 @@
+.git
+.gitignore
+*.md
+.env
+.env.*
+_ref_*
+docker-stack.yml
+build.sh
+node_modules/
+.DS_Store
+Thumbs.db
