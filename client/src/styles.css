@@ -1,0 +1,129 @@
+:root {
+  color-scheme: dark;
+  --bg0: #0a0d12;
+  --bg1: #121821;
+  --fg: #e8eef7;
+  --muted: #9aa8bc;
+  --accent: #c9a227;
+  --danger: #c45c5c;
+  --line: #243044;
+  --ok: #3d8b6e;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--fg);
+  background:
+    radial-gradient(ellipse at top, #1a2433 0%, transparent 50%),
+    linear-gradient(180deg, var(--bg1), var(--bg0));
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--accent);
+  background: linear-gradient(180deg, #3a3014, #2a220c);
+  color: var(--fg);
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.ghost {
+  background: transparent;
+  border-color: var(--line);
+}
+
+button.danger {
+  border-color: var(--danger);
+  background: linear-gradient(180deg, #4a2424, #2f1616);
+}
+
+.shell {
+  width: min(960px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.5rem 0 3rem;
+}
+
+.brand {
+  margin: 0;
+  font-size: 1.6rem;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.stats-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  color: var(--muted);
+}
+
+.panel {
+  border: 1px solid var(--line);
+  background: rgba(10, 14, 20, 0.72);
+  border-radius: 14px;
+  padding: 1.25rem;
+}
+
+.muted { color: var(--muted); }
+.error { color: #ff8f8f; }
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.card-btn {
+  text-align: left;
+  display: grid;
+  gap: 0.35rem;
+  background: #141b26;
+  border-color: var(--line);
+}
+
+.card-btn.active {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.card-btn small { color: var(--muted); }
+
+.upgrade {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.85rem;
+  background: #10161f;
+}
+
+.upgrade p { margin: 0.2rem 0 0; }

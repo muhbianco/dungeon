@@ -3,10 +3,12 @@
 # Domínio: dungeon.muhbianco.com.br
 # Rede: chatbot-net (mesma do Traefik)
 # Imagem: muhrilobianco/dungeon_descent:latest (Docker Hub)
+# DB: MariaDB do HOST (preencher envs no Portainer)
 #
 # Fluxo:
-# 1. ./build.sh prod   (build + push da imagem)
-# 2. Portainer → Stacks → Add stack → colar este YAML → Deploy
+# 1. Criar DB + schema (sql/schema.sql) no MariaDB da máquina
+# 2. ./build.sh prod
+# 3. Portainer → Stacks → colar este YAML → preencher envs → Deploy
 # =============================================================================
 
 version: "3.8"
@@ -14,6 +16,18 @@ version: "3.8"
 services:
   dungeon_descent:
     image: muhrilobianco/dungeon_descent:latest
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      CORS_ORIGIN: https://dungeon.muhbianco.com.br
+      PUBLIC_URL: https://dungeon.muhbianco.com.br
+      DB_HOST: host.docker.internal
+      DB_PORT: "3306"
+      DB_USER: ""
+      DB_PASSWORD: ""
+      DB_NAME: ""
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - chatbot-net
     deploy:
@@ -28,11 +42,11 @@ services:
         failure_action: rollback
       resources:
         limits:
-          cpus: "0.50"
-          memory: 256M
+          cpus: "1.0"
+          memory: 512M
         reservations:
-          cpus: "0.05"
-          memory: 32M
+          cpus: "0.10"
+          memory: 128M
       labels:
         - traefik.enable=true
         - traefik.docker.network=chatbot-net
@@ -42,7 +56,7 @@ services:
         - traefik.http.routers.dungeon_descent.priority=1
         - traefik.http.routers.dungeon_descent.service=dungeon_descent
         - traefik.http.routers.dungeon_descent.middlewares=dungeon_descent_headers
-        - traefik.http.services.dungeon_descent.loadbalancer.server.port=80
+        - traefik.http.services.dungeon_descent.loadbalancer.server.port=3000
         - traefik.http.services.dungeon_descent.loadbalancer.passHostHeader=true
         - traefik.http.middlewares.dungeon_descent_headers.headers.stsSeconds=31536000
         - traefik.http.middlewares.dungeon_descent_headers.headers.stsIncludeSubdomains=true

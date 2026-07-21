@@ -1,11 +1,12 @@
 .git
 .gitignore
-*.md
 .env
 .env.*
+*.md
 _ref_*
+node_modules
+client/node_modules
+client/dist
 docker-stack.yml
 build.sh
-node_modules/
-.DS_Store
-Thumbs.db
+*.log
