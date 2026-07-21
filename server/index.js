@@ -62,6 +62,7 @@ app.post('/api/player/character', requireAuth, PlayerController.ensureCharacter)
 app.post('/api/player/run-end', requireAuth, PlayerController.endRun);
 app.post('/api/player/upgrades/buy', requireAuth, PlayerController.buyUpgrade);
 app.post('/api/player/equipment/buy', requireAuth, PlayerController.buyEquipment);
+app.post('/api/player/skills/upgrade', requireAuth, PlayerController.buySkill);
 app.put('/api/player/settings', requireAuth, PlayerController.saveSettings);
 
 const clientDist = path.resolve(__dirname, '../client/dist');

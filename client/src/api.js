@@ -33,6 +33,11 @@ export const api = {
       method: 'POST',
       body: { classId, slot },
     }),
+  buySkill: (classId, skillKey) =>
+    request('/api/player/skills/upgrade', {
+      method: 'POST',
+      body: { classId, skillKey },
+    }),
   saveSettings: (settings) =>
     request('/api/player/settings', {
       method: 'PUT',

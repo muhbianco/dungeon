@@ -4,6 +4,7 @@ const DEFAULT_SETTINGS = {
   sound: true,
   music: true,
   language: 'pt-BR',
+  autoDescend: false,
 };
 
 export default class SettingsFinder {
@@ -34,7 +35,8 @@ export default class SettingsFinder {
   }
 
   static async save(playerId, settings) {
-    const merged = { ...this.defaults(), ...settings };
+    const current = await this.getOrCreate(playerId);
+    const merged = { ...this.defaults(), ...current, ...(settings || {}) };
     await query(
       `INSERT INTO player_settings (player_id, settings_json)
        VALUES (:playerId, :settingsJson)

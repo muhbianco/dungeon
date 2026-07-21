@@ -229,6 +229,29 @@ button.danger {
 .hint { margin: 0.85rem 0 0; }
 .ok-text { color: #7dcea6; }
 
+.toggle-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #161d29;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.9rem;
+}
+
+.toggle-flag.on {
+  border-color: #c9a227;
+  color: #e8d9a0;
+}
+
+.toggle-flag input {
+  accent-color: #c9a227;
+}
+
 .combat-log {
   margin-top: 1rem;
   max-height: 180px;
@@ -289,4 +312,52 @@ button.danger {
 .char-list small {
   display: block;
   margin-top: 0.25rem;
+}
+
+.char-actions {
+  display: grid;
+  gap: 0.4rem;
+  align-content: start;
+}
+
+.skill-hud {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.55rem;
+  margin: 0.85rem 0;
+}
+
+.skill-chip {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+  background: #161d29;
+}
+
+.skill-chip.ready {
+  border-color: #6a7f9a;
+}
+
+.skill-chip.heal.ready {
+  border-color: #4aa57d;
+}
+
+.skill-chip-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.skill-chip small {
+  display: block;
+  margin: 0.15rem 0 0.35rem;
+}
+
+.bar.skill-cd {
+  height: 5px;
+}
+
+.bar-fill.skill {
+  background: linear-gradient(90deg, #c9a227, #e0bf55);
 }

@@ -60,6 +60,19 @@ CREATE TABLE IF NOT EXISTS character_equipment (
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS character_skills (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  character_id BIGINT UNSIGNED NOT NULL,
+  skill_key VARCHAR(64) NOT NULL,
+  skill_level INT UNSIGNED NOT NULL DEFAULT 1,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_character_skills (character_id, skill_key),
+  CONSTRAINT fk_character_skills_character
+    FOREIGN KEY (character_id) REFERENCES characters (id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS permanent_upgrades (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   player_id BIGINT UNSIGNED NOT NULL,

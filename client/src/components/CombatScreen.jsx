@@ -8,6 +8,8 @@ import {
   getActiveEnemy,
   playerAttack,
   summarizeThreat,
+  tickSkillCooldowns,
+  tryAutoCastSkill,
 } from '../game/combat.js';
 
 const TICK_MS = 50;
@@ -19,18 +21,28 @@ function hpPct(current, max) {
   return Math.max(0, Math.min(100, (current / max) * 100));
 }
 
+function skillTypeLabel(skill) {
+  if (skill.kind === 'heal') return 'Cura';
+  if (skill.damageType === 'magic') return 'Mágica';
+  if (skill.damageType === 'hybrid') return 'Híbrida';
+  return 'Física';
+}
+
 export default function CombatScreen({
   classData,
   character,
   upgrades,
+  settings,
   busy,
   onDie,
+  onSettingsChange,
 }) {
   const startedAt = useRef(Date.now());
   const playerRef = useRef(buildPlayerCombatant(classData, upgrades, {
     attrs: character?.attrs,
     equipmentBonuses: character?.equipmentBonuses,
     level: character?.level || 1,
+    skills: character?.skills || [],
   }));
   const encounterRef = useRef(createFloorEncounter(1));
   const floorRef = useRef(1);
@@ -39,6 +51,8 @@ export default function CombatScreen({
   const timersRef = useRef({ player: 0, enemy: 0, last: Date.now() });
   const logRef = useRef(['A masmorra se abre. Wave 1 começa.']);
   const deadHandledRef = useRef(false);
+  const autoDescendRef = useRef(Boolean(settings?.autoDescend));
+  const [autoDescend, setAutoDescend] = useState(Boolean(settings?.autoDescend));
 
   const [ui, setUi] = useState(() => snapshot());
 
@@ -50,7 +64,10 @@ export default function CombatScreen({
     return {
       floor: floorRef.current,
       maxFloor: maxFloorRef.current,
-      player: { ...player },
+      player: {
+        ...player,
+        skills: (player.skills || []).map((s) => ({ ...s })),
+      },
       encounter: {
         kills: encounter.kills,
         killsRequired: encounter.killsRequired,
@@ -79,6 +96,40 @@ export default function CombatScreen({
 
   function pushLog(message) {
     logRef.current = [message, ...logRef.current].slice(0, 40);
+  }
+
+  function registerKill(enemy) {
+    const player = playerRef.current;
+    const encounter = encounterRef.current;
+    encounter.kills += 1;
+    const goldGain = Math.floor(enemy.gold * player.goldGainMult);
+    const xpGain = Math.floor(enemy.xp * player.xpGainMult);
+    runRef.current.kills += 1;
+    runRef.current.gold += goldGain;
+    runRef.current.xp += xpGain;
+    pushLog(`${enemy.name} derrotado (+${xpGain} XP, +${goldGain} ouro)`);
+    timersRef.current.enemy = 0;
+
+    const status = advanceWaveOrComplete(encounter);
+    if (status === 'next_wave') pushLog(`Wave ${encounter.waveIndex + 1} chegou!`);
+    if (status === 'farm_wave') pushLog(`Farm wave ${encounter.waveIndex + 1} — pode continuar no andar.`);
+    if (status === 'unlocked') {
+      if (autoDescendRef.current) {
+        pushLog(`Escada liberada — descendo automaticamente…`);
+        goDeeper();
+      } else {
+        pushLog(`Escada liberada no andar ${encounter.floor}. Pode descer ou continuar farmando.`);
+      }
+    }
+  }
+
+  function toggleAutoDescend() {
+    const next = !autoDescendRef.current;
+    autoDescendRef.current = next;
+    setAutoDescend(next);
+    onSettingsChange?.({ autoDescend: next });
+    pushLog(next ? 'Descida automática: ligada.' : 'Descida automática: desligada.');
+    refresh();
   }
 
   function resetFloor(nextFloor, { reason } = {}) {
@@ -121,7 +172,13 @@ export default function CombatScreen({
     const encounter = encounterRef.current;
     if (player.hp <= 0) return;
 
+    if (autoDescendRef.current && encounter.completed) {
+      goDeeper();
+      return;
+    }
+
     applyRegen(player, dt);
+    tickSkillCooldowns(player, dt);
 
     let enemy = getActiveEnemy(encounter);
     if (!enemy) {
@@ -129,7 +186,12 @@ export default function CombatScreen({
       if (status === 'next_wave') pushLog(`Wave ${encounter.waveIndex + 1} chegou!`);
       if (status === 'farm_wave') pushLog(`Farm wave ${encounter.waveIndex + 1} — pode continuar no andar.`);
       if (status === 'unlocked') {
-        pushLog(`Escada liberada no andar ${encounter.floor}. Pode descer ou continuar farmando.`);
+        if (autoDescendRef.current) {
+          pushLog(`Escada liberada — descendo automaticamente…`);
+          goDeeper();
+        } else {
+          pushLog(`Escada liberada no andar ${encounter.floor}. Pode descer ou continuar farmando.`);
+        }
       }
       return;
     }
@@ -137,7 +199,25 @@ export default function CombatScreen({
     timersRef.current.player += dt;
     timersRef.current.enemy += dt;
 
-    if (timersRef.current.player >= player.attackIntervalMs) {
+    const cast = tryAutoCastSkill(player, enemy);
+    if (cast) {
+      if (cast.type === 'heal') {
+        pushLog(`${cast.skill.name}: +${Math.ceil(cast.healed)} HP`);
+      } else {
+        pushLog(
+          cast.crit
+            ? `${cast.skill.name} crítico em ${enemy.name}: ${cast.damage}`
+            : `${cast.skill.name} em ${enemy.name}: ${cast.damage}`
+        );
+        if (cast.killed) {
+          registerKill(enemy);
+          enemy = getActiveEnemy(encounter);
+          if (!enemy) return;
+        }
+      }
+    }
+
+    if (enemy && timersRef.current.player >= player.attackIntervalMs) {
       timersRef.current.player = 0;
       const hit = playerAttack(player, enemy);
       pushLog(
@@ -147,21 +227,9 @@ export default function CombatScreen({
       );
 
       if (hit.killed) {
-        encounter.kills += 1;
-        const goldGain = Math.floor(enemy.gold * player.goldGainMult);
-        const xpGain = Math.floor(enemy.xp * player.xpGainMult);
-        runRef.current.kills += 1;
-        runRef.current.gold += goldGain;
-        runRef.current.xp += xpGain;
-        pushLog(`${enemy.name} derrotado (+${xpGain} XP, +${goldGain} ouro)`);
-        timersRef.current.enemy = 0;
-
-        const status = advanceWaveOrComplete(encounter);
-        if (status === 'next_wave') pushLog(`Wave ${encounter.waveIndex + 1} chegou!`);
-        if (status === 'farm_wave') pushLog(`Farm wave ${encounter.waveIndex + 1} — pode continuar no andar.`);
-        if (status === 'unlocked') {
-          pushLog(`Escada liberada no andar ${encounter.floor}. Pode descer ou continuar farmando.`);
-        }
+        registerKill(enemy);
+        enemy = getActiveEnemy(encounter);
+        if (!enemy) return;
       }
     }
 
@@ -241,6 +309,29 @@ export default function CombatScreen({
         </div>
       </div>
 
+      {ui.player.skills?.length ? (
+        <div className="skill-hud">
+          {ui.player.skills.map((skill) => {
+            const ready = skill.cooldownRemaining <= 0;
+            const pct = ready
+              ? 100
+              : 100 - Math.min(100, (skill.cooldownRemaining / skill.effectiveCooldownMs) * 100);
+            return (
+              <div key={skill.key} className={`skill-chip ${ready ? 'ready' : ''} ${skill.kind}`}>
+                <div className="skill-chip-top">
+                  <strong>{skill.name}</strong>
+                  <span>{ready ? 'Pronta' : `${(skill.cooldownRemaining / 1000).toFixed(1)}s`}</span>
+                </div>
+                <small className="muted">{skillTypeLabel(skill)} · Nv. {skill.level}</small>
+                <div className="bar skill-cd">
+                  <div className="bar-fill skill" style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
       <div className="arena">
         {ui.enemy ? (
           <div className={`enemy-card ${ui.encounter.completed ? 'clear' : ''}`}>
@@ -270,7 +361,7 @@ export default function CombatScreen({
       <div className="actions">
         <button
           type="button"
-          disabled={!ui.encounter.completed || ui.dead || busy}
+          disabled={!ui.encounter.completed || ui.dead || busy || autoDescend}
           onClick={goDeeper}
         >
           Descer andar
@@ -283,6 +374,15 @@ export default function CombatScreen({
         >
           Subir andar
         </button>
+        <label className={`toggle-flag ${autoDescend ? 'on' : ''}`}>
+          <input
+            type="checkbox"
+            checked={autoDescend}
+            disabled={ui.dead || busy}
+            onChange={toggleAutoDescend}
+          />
+          Descer sozinho
+        </label>
         <button
           type="button"
           className="danger"
@@ -298,6 +398,8 @@ export default function CombatScreen({
           Elimine {Math.max(0, ui.encounter.killsRequired - ui.encounter.kills)} inimigo(s) para liberar a descida.
           Se ficar pesado, suba de andar.
         </p>
+      ) : autoDescend ? (
+        <p className="hint ok-text">Descida automática ligada — avançando para o próximo andar.</p>
       ) : (
         <p className="hint ok-text">
           Escada liberada. Pode descer quando quiser — ou continuar farmando neste andar.

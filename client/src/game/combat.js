@@ -24,6 +24,32 @@ export function wavesForFloor(floor) {
   return 3;
 }
 
+const HEAL_HP_THRESHOLD = 0.55;
+const SKILL_CDR_PER_LEVEL = 0.05;
+const SKILL_CDR_CAP = 0.75;
+
+export function skillCooldownMs(skill, upgrades = {}) {
+  const cdrLevel = upgrades.skill_cdr || 0;
+  const reduction = Math.min(SKILL_CDR_CAP, cdrLevel * SKILL_CDR_PER_LEVEL);
+  return Math.max(500, Math.floor((skill.cooldownMs || 5000) * (1 - reduction)));
+}
+
+export function initCombatSkills(skillDefs = [], upgrades = {}) {
+  return (skillDefs || []).map((skill) => ({
+    key: skill.key,
+    name: skill.name,
+    kind: skill.kind,
+    damageType: skill.damageType,
+    power: skill.power || 1,
+    healPower: skill.healPower || 0.15,
+    priority: skill.priority || 0,
+    powerMult: skill.powerMult || 1,
+    level: skill.level || 1,
+    effectiveCooldownMs: skillCooldownMs(skill, upgrades),
+    cooldownRemaining: 0,
+  }));
+}
+
 export function buildPlayerCombatant(classData, upgrades = {}, options = {}) {
   const baseAttrs = options.attrs || classData?.attrs || { str: 4, con: 4, agi: 4, dex: 4, int: 4 };
   const equip = options.equipmentBonuses || {};
@@ -77,6 +103,8 @@ export function buildPlayerCombatant(classData, upgrades = {}, options = {}) {
     regen,
     goldGainMult: 1 + u('gold_gain') * 0.08,
     xpGainMult: 1 + u('xp_gain') * 0.08,
+    skills: initCombatSkills(options.skills || [], upgrades),
+    skillGcdRemaining: 0,
   };
 }
 
@@ -157,6 +185,92 @@ export function playerAttack(player, enemy) {
   const damage = Math.max(1, Math.floor(base * (crit ? 1.75 : 1) * (0.9 + Math.random() * 0.2)));
   enemy.hp = Math.max(0, enemy.hp - damage);
   return { damage, crit, killed: enemy.hp <= 0 };
+}
+
+function skillBasePower(player, skill) {
+  const phys = player.physical || 0;
+  const mag = player.magic || 0;
+  if (skill.damageType === 'magic') return mag;
+  if (skill.damageType === 'hybrid') return (phys + mag) * 0.55;
+  return phys;
+}
+
+export function tickSkillCooldowns(player, dtMs) {
+  if (player.skillGcdRemaining > 0) {
+    player.skillGcdRemaining = Math.max(0, player.skillGcdRemaining - dtMs);
+  }
+  if (!player?.skills?.length) return;
+  for (const skill of player.skills) {
+    if (skill.cooldownRemaining > 0) {
+      skill.cooldownRemaining = Math.max(0, skill.cooldownRemaining - dtMs);
+    }
+  }
+}
+
+/**
+ * Auto-cast: cura se HP baixo; senão dano no alvo.
+ * Retorna evento ou null.
+ */
+export function tryAutoCastSkill(player, enemy) {
+  if (!player?.skills?.length || player.hp <= 0) return null;
+  if ((player.skillGcdRemaining || 0) > 0) return null;
+
+  const ready = player.skills.filter((s) => s.cooldownRemaining <= 0);
+  if (!ready.length) return null;
+
+  const hpRatio = player.hp / Math.max(1, player.maxHp);
+  const needsHeal = hpRatio <= HEAL_HP_THRESHOLD;
+  let pool;
+
+  if (needsHeal) {
+    const heals = ready.filter((s) => s.kind === 'heal');
+    pool = heals.length ? heals : ready.filter((s) => s.kind === 'damage');
+  } else {
+    pool = ready.filter((s) => s.kind === 'damage');
+  }
+
+  if (!pool.length) return null;
+  pool.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+  const skill = pool[0];
+  skill.cooldownRemaining = skill.effectiveCooldownMs;
+  player.skillGcdRemaining = 750;
+
+  const mult = skill.powerMult || 1;
+  if (skill.kind === 'heal') {
+    const amount = Math.max(
+      1,
+      Math.floor(player.maxHp * (skill.healPower || 0.15) * mult * (0.92 + Math.random() * 0.16))
+    );
+    const before = player.hp;
+    player.hp = Math.min(player.maxHp, player.hp + amount);
+    return {
+      type: 'heal',
+      skill,
+      healed: player.hp - before,
+    };
+  }
+
+  if (!enemy || enemy.hp <= 0) {
+    skill.cooldownRemaining = 0;
+    player.skillGcdRemaining = 0;
+    return null;
+  }
+
+  const base = skillBasePower(player, skill);
+  const crit = rollCrit(player.critChance * 0.85);
+  const pierce = skill.key === 'piercing_arrow' ? 1.15 : 1;
+  const damage = Math.max(
+    1,
+    Math.floor(base * (skill.power || 1) * mult * pierce * (crit ? 1.6 : 1) * (0.9 + Math.random() * 0.2))
+  );
+  enemy.hp = Math.max(0, enemy.hp - damage);
+  return {
+    type: 'damage',
+    skill,
+    damage,
+    crit,
+    killed: enemy.hp <= 0,
+  };
 }
 
 export function enemyAttack(enemy, player) {

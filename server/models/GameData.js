@@ -74,6 +74,12 @@ export const UPGRADE_CATALOG = Object.freeze({
     percentPerLevel: 3,
     costs: PREMIUM_COSTS,
   },
+  skill_cdr: {
+    label: 'Recarga de Habilidades',
+    description: 'Reduz o tempo de recarga das habilidades',
+    percentPerLevel: 5,
+    costs: PREMIUM_COSTS,
+  },
 });
 
 export function describeUpgrade(upgradeKey, level = 0) {
@@ -294,4 +300,201 @@ export function essencesForFloor(maxFloor) {
   if (floor <= 0) return 0;
   // Andar 1≈4 · 5≈35 · 10≈110 · 20≈380 · 30≈780
   return Math.max(1, Math.floor(3.2 * (floor ** 1.55) + floor * 2));
+}
+
+const SKILL_UPGRADE_COSTS = [0, 60, 100, 160, 240, 340, 470, 630, 820, 1050];
+
+/**
+ * 4 habilidades por classe. Auto-cast em combate.
+ * kind: damage | heal
+ * damageType: physical | magic | hybrid
+ */
+export const CLASS_SKILLS = Object.freeze({
+  warrior: [
+    {
+      key: 'heavy_slash',
+      name: 'Golpe Devastador',
+      description: 'Um golpe físico poderoso no alvo.',
+      kind: 'damage',
+      damageType: 'physical',
+      cooldownMs: 7000,
+      power: 2.8,
+      priority: 40,
+    },
+    {
+      key: 'shield_bash',
+      name: 'Bash de Escudo',
+      description: 'Ataque físico rápido que atordoa o ritmo do inimigo.',
+      kind: 'damage',
+      damageType: 'physical',
+      cooldownMs: 5000,
+      power: 1.9,
+      priority: 30,
+    },
+    {
+      key: 'war_cry',
+      name: 'Grito de Guerra',
+      description: 'Investida física em área concentrada.',
+      kind: 'damage',
+      damageType: 'physical',
+      cooldownMs: 9000,
+      power: 3.2,
+      priority: 50,
+    },
+    {
+      key: 'iron_guard',
+      name: 'Guarda de Ferro',
+      description: 'Recupera um pouco de vida pela disciplina de combate.',
+      kind: 'heal',
+      damageType: 'physical',
+      cooldownMs: 12000,
+      healPower: 0.18,
+      priority: 80,
+    },
+  ],
+  archer: [
+    {
+      key: 'precise_shot',
+      name: 'Tiro Certeiro',
+      description: 'Disparo físico preciso.',
+      kind: 'damage',
+      damageType: 'physical',
+      cooldownMs: 4500,
+      power: 2.2,
+      priority: 35,
+    },
+    {
+      key: 'piercing_arrow',
+      name: 'Flecha Perfurante',
+      description: 'Dano físico elevado ignorando parte da defesa.',
+      kind: 'damage',
+      damageType: 'physical',
+      cooldownMs: 7000,
+      power: 2.9,
+      priority: 45,
+    },
+    {
+      key: 'arrow_rain',
+      name: 'Chuva de Flechas',
+      description: 'Rajada física intensa.',
+      kind: 'damage',
+      damageType: 'physical',
+      cooldownMs: 10000,
+      power: 3.4,
+      priority: 55,
+    },
+    {
+      key: 'hunters_focus',
+      name: 'Foco do Caçador',
+      description: 'Recupera fôlego e vida com concentração.',
+      kind: 'heal',
+      damageType: 'physical',
+      cooldownMs: 14000,
+      healPower: 0.14,
+      priority: 75,
+    },
+  ],
+  mage: [
+    {
+      key: 'fireball',
+      name: 'Bola de Fogo',
+      description: 'Projétil mágico de fogo.',
+      kind: 'damage',
+      damageType: 'magic',
+      cooldownMs: 5500,
+      power: 2.5,
+      priority: 40,
+    },
+    {
+      key: 'arc_bolt',
+      name: 'Raio Arcano',
+      description: 'Raio mágico rápido.',
+      kind: 'damage',
+      damageType: 'magic',
+      cooldownMs: 4000,
+      power: 1.8,
+      priority: 30,
+    },
+    {
+      key: 'frost_nova',
+      name: 'Nova de Gelo',
+      description: 'Explosão mágica de gelo.',
+      kind: 'damage',
+      damageType: 'magic',
+      cooldownMs: 9000,
+      power: 3.3,
+      priority: 50,
+    },
+    {
+      key: 'mana_shield',
+      name: 'Escudo Arcano',
+      description: 'Converte magia em restauração de vida.',
+      kind: 'heal',
+      damageType: 'magic',
+      cooldownMs: 13000,
+      healPower: 0.16,
+      priority: 80,
+    },
+  ],
+  cleric: [
+    {
+      key: 'holy_smite',
+      name: 'Punição Sagrada',
+      description: 'Golpe mágico de luz.',
+      kind: 'damage',
+      damageType: 'magic',
+      cooldownMs: 5500,
+      power: 2.3,
+      priority: 35,
+    },
+    {
+      key: 'heal',
+      name: 'Cura',
+      description: 'Restaura uma porção significativa da vida.',
+      kind: 'heal',
+      damageType: 'magic',
+      cooldownMs: 8000,
+      healPower: 0.28,
+      priority: 90,
+    },
+    {
+      key: 'divine_strike',
+      name: 'Golpe Divino',
+      description: 'Ataque híbrido físico e mágico.',
+      kind: 'damage',
+      damageType: 'hybrid',
+      cooldownMs: 7000,
+      power: 2.6,
+      priority: 45,
+    },
+    {
+      key: 'blessing',
+      name: 'Bênção',
+      description: 'Cura menor e constante do espírito.',
+      kind: 'heal',
+      damageType: 'magic',
+      cooldownMs: 11000,
+      healPower: 0.15,
+      priority: 70,
+    },
+  ],
+});
+
+export function getClassSkills(classId) {
+  return CLASS_SKILLS[classId] || [];
+}
+
+export function getSkill(classId, skillKey) {
+  return getClassSkills(classId).find((s) => s.key === skillKey) || null;
+}
+
+export function skillUpgradeCost(currentLevel) {
+  const lv = Math.max(1, Math.floor(Number(currentLevel) || 1));
+  if (lv >= 10) return null;
+  return SKILL_UPGRADE_COSTS[lv] ?? Math.floor(60 * (1.4 ** lv));
+}
+
+export function skillPowerMultiplier(skillLevel) {
+  const lv = Math.max(1, Math.floor(Number(skillLevel) || 1));
+  return 1 + (lv - 1) * 0.12;
 }

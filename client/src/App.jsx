@@ -8,9 +8,17 @@ const SCREENS = {
   MENU: 'menu',
   CLASS: 'class',
   GEAR: 'gear',
+  SKILLS: 'skills',
   RUN: 'run',
   GUARDIAN: 'guardian',
 };
+
+function skillKindLabel(skill) {
+  if (skill.kind === 'heal') return 'Cura';
+  if (skill.damageType === 'magic') return 'Mágica';
+  if (skill.damageType === 'hybrid') return 'Híbrida';
+  return 'Física';
+}
 
 function formatBonus(n) {
   const value = Number(n) || 0;
@@ -59,6 +67,7 @@ export default function App() {
   const [classes, setClasses] = useState({});
   const [selectedClass, setSelectedClass] = useState(null);
   const [gearClass, setGearClass] = useState(null);
+  const [skillsClass, setSkillsClass] = useState(null);
   const [error, setError] = useState(authMessageFromQuery());
   const [busy, setBusy] = useState(false);
   const [authConfigured, setAuthConfigured] = useState(true);
@@ -73,6 +82,12 @@ export default function App() {
     if (!id || !profile?.characters) return null;
     return profile.characters.find((c) => c.classId === id) || null;
   }, [profile, gearClass, selectedClass]);
+
+  const skillsCharacter = useMemo(() => {
+    const id = skillsClass || selectedClass;
+    if (!id || !profile?.characters) return null;
+    return profile.characters.find((c) => c.classId === id) || null;
+  }, [profile, skillsClass, selectedClass]);
 
   async function loadProfile() {
     const [meta, me] = await Promise.all([api.meta(), api.me()]);
@@ -187,6 +202,46 @@ export default function App() {
     }
   }
 
+  async function openSkills(classId) {
+    setBusy(true);
+    setError('');
+    try {
+      await api.ensureCharacter(classId);
+      await refresh();
+      setSkillsClass(classId);
+      setScreen(SCREENS.SKILLS);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function buySkill(skillKey) {
+    if (!skillsClass) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api.buySkill(skillsClass, skillKey);
+      await refresh();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateSettings(partial) {
+    const next = { ...(profile?.settings || {}), ...partial };
+    setProfile((prev) => (prev ? { ...prev, settings: next } : prev));
+    try {
+      const { settings } = await api.saveSettings(next);
+      setProfile((prev) => (prev ? { ...prev, settings } : prev));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   async function logout() {
     await api.logout();
     setProfile(null);
@@ -247,11 +302,14 @@ export default function App() {
       {screen === SCREENS.MENU && (
         <section className="panel">
           <h2>Cidade Inicial</h2>
-          <p className="muted">Expedições, ferreiro e Guardião das Almas.</p>
+          <p className="muted">Expedições, ferreiro, mentor de habilidades e Guardião das Almas.</p>
           <div className="actions">
             <button type="button" onClick={() => setScreen(SCREENS.CLASS)}>Entrar na Masmorra</button>
             <button type="button" className="ghost" onClick={() => openGear(selectedClass || 'warrior')}>
               Ferreiro / Equipamentos
+            </button>
+            <button type="button" className="ghost" onClick={() => openSkills(selectedClass || 'warrior')}>
+              Mentor de Habilidades
             </button>
             <button type="button" className="ghost" onClick={() => setScreen(SCREENS.GUARDIAN)}>
               Guardião das Almas
@@ -271,7 +329,10 @@ export default function App() {
                         STR {ch.attrs.str} · CON {ch.attrs.con} · AGI {ch.attrs.agi} · DEX {ch.attrs.dex} · INT {ch.attrs.int}
                       </small>
                     </div>
-                    <button type="button" className="ghost" onClick={() => openGear(ch.classId)}>Gear</button>
+                    <div className="char-actions">
+                      <button type="button" className="ghost" onClick={() => openGear(ch.classId)}>Gear</button>
+                      <button type="button" className="ghost" onClick={() => openSkills(ch.classId)}>Skills</button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -371,14 +432,77 @@ export default function App() {
         </section>
       )}
 
+      {screen === SCREENS.SKILLS && (
+        <section className="panel">
+          <h2>Mentor de Habilidades</h2>
+          <p className="muted">4 habilidades por classe · auto-cast em combate · upgrade com ouro.</p>
+          <div className="actions" style={{ marginTop: 0 }}>
+            {Object.values(classes).map((cls) => (
+              <button
+                key={cls.id}
+                type="button"
+                className={skillsClass === cls.id ? '' : 'ghost'}
+                onClick={() => openSkills(cls.id)}
+              >
+                {cls.name}
+              </button>
+            ))}
+          </div>
+          {skillsCharacter ? (
+            <p className="muted">
+              {skillsCharacter.className} · Nv. {skillsCharacter.level}
+              {(profile?.upgrades?.skill_cdr || 0) > 0
+                ? ` · CDR Guardião −${(profile.upgrades.skill_cdr || 0) * 5}%`
+                : ''}
+            </p>
+          ) : (
+            <p className="muted">Selecione uma classe para treinar.</p>
+          )}
+          <div className="grid">
+            {(skillsCharacter?.skills || []).map((skill) => {
+              const maxed = skill.level >= 10 || skill.nextCost == null;
+              const cost = skill.nextCost;
+              return (
+                <div key={skill.key} className="upgrade">
+                  <div>
+                    <strong>{skill.name}</strong>
+                    <p className="muted">
+                      {skillKindLabel(skill)} · CD {skill.cooldownLabel} · Nv. {skill.level}/10
+                    </p>
+                    <p className="equip-stat">{skill.description}</p>
+                    <small className="muted">
+                      {skill.kind === 'heal'
+                        ? `Cura ~${Math.round((skill.healPower || 0) * (skill.powerMult || 1) * 100)}% HP máx`
+                        : `Poder x${((skill.power || 1) * (skill.powerMult || 1)).toFixed(2)}`}
+                    </small>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={busy || !skillsClass || maxed || (player?.gold ?? 0) < cost}
+                    onClick={() => buySkill(skill.key)}
+                  >
+                    {maxed ? 'Máximo' : `Upgrade ${cost}g`}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <div className="actions">
+            <button type="button" className="ghost" onClick={() => setScreen(SCREENS.MENU)}>Voltar</button>
+          </div>
+        </section>
+      )}
+
       {screen === SCREENS.RUN && selectedClass && activeCharacter && (
         <CombatScreen
           key={`${selectedClass}-${activeCharacter.id}-${activeCharacter.level}`}
           classData={classes[selectedClass]}
           character={activeCharacter}
           upgrades={profile?.upgrades || {}}
+          settings={profile?.settings || {}}
           busy={busy}
           onDie={finishRun}
+          onSettingsChange={updateSettings}
         />
       )}
 

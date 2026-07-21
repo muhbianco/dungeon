@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import PlayerFinder from '../finders/PlayerFinder.js';
 import CharacterFinder from '../finders/CharacterFinder.js';
 import EquipmentFinder from '../finders/EquipmentFinder.js';
+import SkillFinder from '../finders/SkillFinder.js';
 import UpgradeFinder from '../finders/UpgradeFinder.js';
 import StatsFinder from '../finders/StatsFinder.js';
 import SettingsFinder from '../finders/SettingsFinder.js';
@@ -18,6 +19,10 @@ import {
   essencesForFloor,
   describeEquipStats,
   getEquipItem,
+  getClassSkills,
+  getSkill,
+  skillUpgradeCost,
+  skillPowerMultiplier,
 } from '../models/GameData.js';
 
 function serializePlayer(player) {
@@ -54,7 +59,24 @@ function buildClassShop(classId) {
   return shop;
 }
 
-function serializeCharacter(row, equipmentRows = []) {
+function serializeSkills(classId, skillRows = []) {
+  const levels = {};
+  for (const row of skillRows) {
+    levels[row.skill_key] = row.skill_level;
+  }
+  return getClassSkills(classId).map((skill) => {
+    const level = levels[skill.key] || 1;
+    return {
+      ...skill,
+      level,
+      powerMult: skillPowerMultiplier(level),
+      nextCost: skillUpgradeCost(level),
+      cooldownLabel: `${(skill.cooldownMs / 1000).toFixed(1)}s`,
+    };
+  });
+}
+
+function serializeCharacter(row, equipmentRows = [], skillRows = []) {
   const classId = row.class_id;
   const bonuses = equipmentBonuses(classId, equipmentRows);
   const equipment = {};
@@ -92,8 +114,17 @@ function serializeCharacter(row, equipmentRows = []) {
     },
     equipmentBonuses: bonuses,
     equipment,
+    skills: serializeSkills(classId, skillRows),
     shop: buildClassShop(classId),
   };
+}
+
+async function loadCharacterBundle(characterRow) {
+  const [eqs, skills] = await Promise.all([
+    EquipmentFinder.listByCharacter(characterRow.id),
+    SkillFinder.ensureDefaults(characterRow.id, characterRow.class_id),
+  ]);
+  return serializeCharacter(characterRow, eqs, skills);
 }
 
 export default class PlayerService {
@@ -131,8 +162,7 @@ export default class PlayerService {
 
     const characterPayload = [];
     for (const ch of characters) {
-      const eqs = await EquipmentFinder.listByCharacter(ch.id);
-      characterPayload.push(serializeCharacter(ch, eqs));
+      characterPayload.push(await loadCharacterBundle(ch));
     }
 
     const shopByClass = {};
@@ -161,8 +191,7 @@ export default class PlayerService {
 
   static async ensureCharacter(playerId, classId) {
     const character = await CharacterFinder.getOrCreate(playerId, classId);
-    const eqs = await EquipmentFinder.listByCharacter(character.id);
-    return serializeCharacter(character, eqs);
+    return loadCharacterBundle(character);
   }
 
   static async endRun(playerId, payload = {}) {
@@ -210,10 +239,11 @@ export default class PlayerService {
     });
 
     const eqs = await EquipmentFinder.listByCharacter(updatedChar.id);
+    const skills = await SkillFinder.ensureDefaults(updatedChar.id, updatedChar.class_id);
 
     return {
       player: serializePlayer(updatedPlayer),
-      character: serializeCharacter(updatedChar, eqs),
+      character: serializeCharacter(updatedChar, eqs, skills),
       awardedEssences: awarded,
       xpGained,
       goldBanked: goldGained,
@@ -255,15 +285,47 @@ export default class PlayerService {
     const player = await PlayerFinder.findById(playerId);
     const refreshed = await CharacterFinder.findById(character.id);
     const eqs = await EquipmentFinder.listByCharacter(character.id);
+    const skills = await SkillFinder.ensureDefaults(character.id, classId);
 
     return {
       player: serializePlayer(player),
-      character: serializeCharacter(refreshed, eqs),
+      character: serializeCharacter(refreshed, eqs, skills),
       item: {
         slot: item.slot,
         itemLevel: item.item_level,
         spent: cost,
       },
+    };
+  }
+
+  static async buySkillUpgrade(playerId, classId, skillKey) {
+    if (!CLASSES[classId] || !getSkill(classId, skillKey)) {
+      const err = new Error('Habilidade inválida');
+      err.status = 400;
+      throw err;
+    }
+
+    const character = await CharacterFinder.getOrCreate(playerId, classId);
+    await SkillFinder.ensureDefaults(character.id, classId);
+    const currentLevel = (await SkillFinder.getLevel(character.id, skillKey)) || 1;
+    if (currentLevel >= 10) {
+      const err = new Error('Habilidade no nível máximo');
+      err.status = 400;
+      throw err;
+    }
+
+    const cost = skillUpgradeCost(currentLevel);
+    await PlayerFinder.spendGold(playerId, cost);
+    await SkillFinder.upsertLevel(character.id, skillKey, currentLevel + 1);
+    const player = await PlayerFinder.findById(playerId);
+    const refreshed = await CharacterFinder.findById(character.id);
+
+    return {
+      player: serializePlayer(player),
+      character: await loadCharacterBundle(refreshed),
+      skillKey,
+      level: currentLevel + 1,
+      spent: cost,
     };
   }
 

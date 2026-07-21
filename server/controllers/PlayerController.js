@@ -1,5 +1,5 @@
 import PlayerService from '../services/PlayerService.js';
-import { CLASSES } from '../models/GameData.js';
+import { CLASSES, CLASS_SKILLS } from '../models/GameData.js';
 
 export default class PlayerController {
   static async me(req, res, next) {
@@ -54,6 +54,19 @@ export default class PlayerController {
     }
   }
 
+  static async buySkill(req, res, next) {
+    try {
+      const { classId, skillKey } = req.body || {};
+      if (!classId || !skillKey) {
+        return res.status(400).json({ error: 'classId e skillKey obrigatórios' });
+      }
+      const result = await PlayerService.buySkillUpgrade(req.playerId, classId, skillKey);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async saveSettings(req, res, next) {
     try {
       const settings = await PlayerService.saveSettings(
@@ -67,6 +80,6 @@ export default class PlayerController {
   }
 
   static meta(_req, res) {
-    res.json({ classes: CLASSES });
+    res.json({ classes: CLASSES, skills: CLASS_SKILLS });
   }
 }
