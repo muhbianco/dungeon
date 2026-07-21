@@ -65,6 +65,15 @@ export const EQUIP_SLOT_LABELS = Object.freeze({
   necklace: 'Colar',
 });
 
+export const STAT_LABELS = Object.freeze({
+  str: 'STR',
+  con: 'CON',
+  agi: 'AGI',
+  dex: 'DEX',
+  int: 'INT',
+  defense: 'DEF',
+});
+
 /** Catálogo base de equipamentos por slot (compra inicial + upgrades). */
 export const EQUIP_CATALOG = Object.freeze({
   helmet: { key: 'iron_helm', name: 'Elmo de Ferro', baseCost: 40, stat: 'defense', perLevel: 2 },
@@ -76,6 +85,27 @@ export const EQUIP_CATALOG = Object.freeze({
   ring2: { key: 'crit_ring', name: 'Anel Crítico', baseCost: 55, stat: 'dex', perLevel: 1 },
   necklace: { key: 'mystic_amulet', name: 'Amuleto Místico', baseCost: 70, stat: 'int', perLevel: 1 },
 });
+
+export function equipBonusAtLevel(slot, itemLevel) {
+  const catalog = EQUIP_CATALOG[slot];
+  if (!catalog) return 0;
+  const lv = Math.max(0, Math.floor(Number(itemLevel) || 0));
+  return catalog.perLevel * lv;
+}
+
+export function describeEquipStats(slot, itemLevel = 0) {
+  const catalog = EQUIP_CATALOG[slot];
+  if (!catalog) return null;
+  const currentLevel = Math.max(0, Math.floor(Number(itemLevel) || 0));
+  const nextLevel = currentLevel + 1;
+  return {
+    stat: catalog.stat,
+    statLabel: STAT_LABELS[catalog.stat] || catalog.stat.toUpperCase(),
+    perLevel: catalog.perLevel,
+    currentBonus: equipBonusAtLevel(slot, currentLevel),
+    nextBonus: equipBonusAtLevel(slot, nextLevel),
+  };
+}
 
 export function xpToNextLevel(level) {
   const lv = Math.max(1, Math.floor(level) || 1);

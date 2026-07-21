@@ -12,6 +12,17 @@ const SCREENS = {
   GUARDIAN: 'guardian',
 };
 
+function formatBonus(n) {
+  const value = Number(n) || 0;
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(1).replace(/\.0$/, '');
+}
+
+function equipStatLine(item) {
+  if (!item?.statLabel) return null;
+  return `${item.statLabel} ${formatBonus(item.currentBonus)} → ${formatBonus(item.nextBonus)}`;
+}
+
 function authMessageFromQuery() {
   const params = new URLSearchParams(window.location.search);
   const auth = params.get('auth');
@@ -313,6 +324,8 @@ export default function App() {
               const owned = gearCharacter?.equipment?.[slot];
               const shop = profile?.shop?.[slot];
               const cost = owned ? owned.nextCost : shop?.buyCost;
+              const stats = owned || shop;
+              const statLine = equipStatLine(stats);
               return (
                 <div key={slot} className="upgrade">
                   <div>
@@ -322,6 +335,7 @@ export default function App() {
                         ? `${owned.name} · Nv. ${owned.itemLevel}`
                         : `${shop?.name || 'Vazio'} · não equipado`}
                     </p>
+                    {statLine ? <p className="equip-stat">{statLine}</p> : null}
                   </div>
                   <button
                     type="button"

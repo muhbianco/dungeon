@@ -17,6 +17,7 @@ import {
   equipUpgradeCost,
   equipmentBonuses,
   essencesForFloor,
+  describeEquipStats,
 } from '../models/GameData.js';
 
 function serializePlayer(player) {
@@ -43,6 +44,7 @@ function serializeCharacter(row, equipmentRows = []) {
   }
   for (const eq of equipmentRows) {
     const catalog = EQUIP_CATALOG[eq.slot];
+    const stats = describeEquipStats(eq.slot, eq.item_level);
     equipment[eq.slot] = {
       slot: eq.slot,
       label: EQUIP_SLOT_LABELS[eq.slot],
@@ -51,6 +53,7 @@ function serializeCharacter(row, equipmentRows = []) {
       itemLevel: eq.item_level,
       rarity: eq.rarity,
       nextCost: equipUpgradeCost(eq.slot, eq.item_level),
+      ...stats,
     };
   }
 
@@ -114,11 +117,13 @@ export default class PlayerService {
 
     const shop = {};
     for (const slot of EQUIP_SLOTS) {
+      const stats = describeEquipStats(slot, 0);
       shop[slot] = {
         slot,
         label: EQUIP_SLOT_LABELS[slot],
         ...EQUIP_CATALOG[slot],
         buyCost: equipUpgradeCost(slot, 0),
+        ...stats,
       };
     }
 
