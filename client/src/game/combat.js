@@ -162,26 +162,25 @@ export function applyRegen(player, dtMs) {
 }
 
 export function advanceWaveOrComplete(encounter) {
-  const wave = currentWave(encounter);
-  if (!wave) {
-    encounter.completed = true;
-    return 'completed';
-  }
-
   if (livingEnemies(encounter).length > 0) return 'fighting';
 
+  const justUnlocked = !encounter.completed && encounter.kills >= encounter.killsRequired;
   if (encounter.kills >= encounter.killsRequired) {
-    encounter.completed = true;
-    return 'completed';
+    encounter.completed = true; // só libera descida; combate continua
   }
 
   if (encounter.waveIndex < encounter.waves.length - 1) {
     encounter.waveIndex += 1;
-    return 'next_wave';
+    return justUnlocked ? 'unlocked' : 'next_wave';
   }
 
-  encounter.completed = encounter.kills >= encounter.killsRequired;
-  return encounter.completed ? 'completed' : 'fighting';
+  // Farm infinito no andar atual
+  const farmIndex = encounter.waves.length;
+  const count = Math.max(2, Math.ceil(encounter.killsRequired / Math.max(1, encounter.waves.length)));
+  const enemies = Array.from({ length: count }, () => createEnemy(encounter.floor, farmIndex));
+  encounter.waves.push({ index: farmIndex + 1, enemies, farm: true });
+  encounter.waveIndex = farmIndex;
+  return justUnlocked ? 'unlocked' : 'farm_wave';
 }
 
 export function summarizeThreat(floor) {

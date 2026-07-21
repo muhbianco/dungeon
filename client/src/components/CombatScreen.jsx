@@ -133,7 +133,7 @@ export default function CombatScreen({
       const player = playerRef.current;
       const encounter = encounterRef.current;
 
-      if (!pausedRef.current && player.hp > 0 && !encounter.completed) {
+      if (!pausedRef.current && player.hp > 0) {
         applyRegen(player, dt);
         dirty = true;
 
@@ -141,7 +141,10 @@ export default function CombatScreen({
         if (!enemy) {
           const status = advanceWaveOrComplete(encounter);
           if (status === 'next_wave') pushLog(`Wave ${encounter.waveIndex + 1} chegou!`);
-          if (status === 'completed') pushLog(`Andar ${encounter.floor} limpo. Pode descer.`);
+          if (status === 'farm_wave') pushLog(`Farm wave ${encounter.waveIndex + 1} — pode continuar no andar.`);
+          if (status === 'unlocked') {
+            pushLog(`Escada liberada no andar ${encounter.floor}. Pode descer ou continuar farmando.`);
+          }
         } else {
           timersRef.current.player += dt;
           timersRef.current.enemy += dt;
@@ -167,7 +170,10 @@ export default function CombatScreen({
 
               const status = advanceWaveOrComplete(encounter);
               if (status === 'next_wave') pushLog(`Wave ${encounter.waveIndex + 1} chegou!`);
-              if (status === 'completed') pushLog(`Andar ${encounter.floor} limpo. Pode descer.`);
+              if (status === 'farm_wave') pushLog(`Farm wave ${encounter.waveIndex + 1} — pode continuar no andar.`);
+              if (status === 'unlocked') {
+                pushLog(`Escada liberada no andar ${encounter.floor}. Pode descer ou continuar farmando.`);
+              }
             }
           }
 
@@ -231,26 +237,21 @@ export default function CombatScreen({
 
         <div className="bar-block">
           <div className="bar-label">
-            <span>Progresso do andar</span>
+            <span>{ui.encounter.completed ? 'Escada liberada (farm livre)' : 'Progresso do andar'}</span>
             <span>{ui.encounter.kills}/{ui.encounter.killsRequired}</span>
           </div>
           <div className="bar">
             <div
               className="bar-fill xp"
-              style={{ width: `${hpPct(ui.encounter.kills, ui.encounter.killsRequired)}%` }}
+              style={{ width: `${hpPct(Math.min(ui.encounter.kills, ui.encounter.killsRequired), ui.encounter.killsRequired)}%` }}
             />
           </div>
         </div>
       </div>
 
       <div className="arena">
-        {ui.encounter.completed ? (
-          <div className="enemy-card clear">
-            <strong>Andar limpo</strong>
-            <p className="muted">Pode descer — o próximo andar será mais forte.</p>
-          </div>
-        ) : ui.enemy ? (
-          <div className="enemy-card">
+        {ui.enemy ? (
+          <div className={`enemy-card ${ui.encounter.completed ? 'clear' : ''}`}>
             <div className="bar-label">
               <span>{ui.enemy.name}</span>
               <span>{Math.ceil(ui.enemy.hp)}/{ui.enemy.maxHp}</span>
@@ -262,8 +263,9 @@ export default function CombatScreen({
               />
             </div>
             <p className="muted">
-              Wave {ui.encounter.waveIndex + 1}/{ui.encounter.waveCount} · Dano {ui.enemy.damage} · Restam{' '}
+              Wave {ui.encounter.waveIndex + 1} · Dano {ui.enemy.damage} · Restam{' '}
               {ui.encounter.livingInWave} nesta wave
+              {ui.encounter.completed ? ' · farmando' : ''}
             </p>
           </div>
         ) : (
@@ -271,20 +273,6 @@ export default function CombatScreen({
             <strong>Preparando próxima wave…</strong>
           </div>
         )}
-
-        <div className="wave-dots" aria-hidden>
-          {Array.from({ length: ui.encounter.waveCount }, (_, idx) => {
-            const cleared = idx < ui.encounter.waveIndex
-              || (idx === ui.encounter.waveIndex && ui.encounter.completed);
-            const current = idx === ui.encounter.waveIndex && !ui.encounter.completed;
-            return (
-              <span
-                key={idx}
-                className={`wave-dot ${cleared ? 'done' : ''} ${current ? 'current' : ''}`}
-              />
-            );
-          })}
-        </div>
       </div>
 
       <div className="actions">
@@ -326,11 +314,13 @@ export default function CombatScreen({
 
       {!ui.encounter.completed ? (
         <p className="hint muted">
-          Elimine {ui.encounter.killsRequired - ui.encounter.kills} inimigo(s) para liberar a descida.
+          Elimine {Math.max(0, ui.encounter.killsRequired - ui.encounter.kills)} inimigo(s) para liberar a descida.
           Se ficar pesado, suba de andar.
         </p>
       ) : (
-        <p className="hint ok-text">Escada liberada. Desça com cuidado — a ameaça sobe a cada andar.</p>
+        <p className="hint ok-text">
+          Escada liberada. Pode descer quando quiser — ou continuar farmando neste andar.
+        </p>
       )}
 
       <div className="combat-log" aria-live="polite">
