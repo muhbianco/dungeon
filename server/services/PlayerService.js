@@ -8,7 +8,6 @@ import SettingsFinder from '../finders/SettingsFinder.js';
 import {
   UPGRADE_CATALOG,
   CLASSES,
-  EQUIP_CATALOG,
   EQUIP_SLOT_LABELS,
   EQUIP_SLOTS,
   attrsForLevel,
@@ -18,6 +17,7 @@ import {
   equipmentBonuses,
   essencesForFloor,
   describeEquipStats,
+  getEquipItem,
 } from '../models/GameData.js';
 
 function serializePlayer(player) {
@@ -36,15 +36,34 @@ function serializePlayer(player) {
   };
 }
 
+function buildClassShop(classId) {
+  const shop = {};
+  for (const slot of EQUIP_SLOTS) {
+    const item = getEquipItem(classId, slot);
+    const stats = describeEquipStats(classId, slot, 0);
+    shop[slot] = {
+      slot,
+      label: EQUIP_SLOT_LABELS[slot],
+      key: item?.key,
+      name: item?.name,
+      baseCost: item?.baseCost,
+      buyCost: equipUpgradeCost(classId, slot, 0),
+      ...stats,
+    };
+  }
+  return shop;
+}
+
 function serializeCharacter(row, equipmentRows = []) {
-  const bonuses = equipmentBonuses(equipmentRows);
+  const classId = row.class_id;
+  const bonuses = equipmentBonuses(classId, equipmentRows);
   const equipment = {};
   for (const slot of EQUIP_SLOTS) {
     equipment[slot] = null;
   }
   for (const eq of equipmentRows) {
-    const catalog = EQUIP_CATALOG[eq.slot];
-    const stats = describeEquipStats(eq.slot, eq.item_level);
+    const catalog = getEquipItem(classId, eq.slot);
+    const stats = describeEquipStats(classId, eq.slot, eq.item_level);
     equipment[eq.slot] = {
       slot: eq.slot,
       label: EQUIP_SLOT_LABELS[eq.slot],
@@ -52,15 +71,15 @@ function serializeCharacter(row, equipmentRows = []) {
       name: catalog?.name || eq.item_key,
       itemLevel: eq.item_level,
       rarity: eq.rarity,
-      nextCost: equipUpgradeCost(eq.slot, eq.item_level),
+      nextCost: equipUpgradeCost(classId, eq.slot, eq.item_level),
       ...stats,
     };
   }
 
   return {
     id: row.id,
-    classId: row.class_id,
-    className: CLASSES[row.class_id]?.name || row.class_id,
+    classId,
+    className: CLASSES[classId]?.name || classId,
     level: row.level,
     xp: row.xp,
     xpToNext: xpToNextLevel(row.level),
@@ -73,6 +92,7 @@ function serializeCharacter(row, equipmentRows = []) {
     },
     equipmentBonuses: bonuses,
     equipment,
+    shop: buildClassShop(classId),
   };
 }
 
@@ -115,16 +135,9 @@ export default class PlayerService {
       characterPayload.push(serializeCharacter(ch, eqs));
     }
 
-    const shop = {};
-    for (const slot of EQUIP_SLOTS) {
-      const stats = describeEquipStats(slot, 0);
-      shop[slot] = {
-        slot,
-        label: EQUIP_SLOT_LABELS[slot],
-        ...EQUIP_CATALOG[slot],
-        buyCost: equipUpgradeCost(slot, 0),
-        ...stats,
-      };
+    const shopByClass = {};
+    for (const classId of Object.keys(CLASSES)) {
+      shopByClass[classId] = buildClassShop(classId);
     }
 
     return {
@@ -132,7 +145,7 @@ export default class PlayerService {
       upgrades,
       catalog: UPGRADE_CATALOG,
       characters: characterPayload,
-      shop,
+      shop: shopByClass,
       slots: EQUIP_SLOTS,
       slotLabels: EQUIP_SLOT_LABELS,
       stats: {
@@ -213,8 +226,8 @@ export default class PlayerService {
   }
 
   static async buyOrUpgradeEquip(playerId, classId, slot) {
-    if (!EQUIP_SLOTS.includes(slot) || !EQUIP_CATALOG[slot]) {
-      const err = new Error('Slot inválido');
+    if (!EQUIP_SLOTS.includes(slot) || !getEquipItem(classId, slot)) {
+      const err = new Error('Equipamento inválido para a classe');
       err.status = 400;
       throw err;
     }
@@ -233,9 +246,9 @@ export default class PlayerService {
       throw err;
     }
 
-    const cost = equipUpgradeCost(slot, current ? current.item_level : 0);
+    const cost = equipUpgradeCost(classId, slot, current ? current.item_level : 0);
     await PlayerFinder.spendGold(playerId, cost);
-    const item = await EquipmentFinder.upsert(character.id, slot, nextLevel);
+    const item = await EquipmentFinder.upsert(character.id, classId, slot, nextLevel);
     const player = await PlayerFinder.findById(playerId);
     const refreshed = await CharacterFinder.findById(character.id);
     const eqs = await EquipmentFinder.listByCharacter(character.id);

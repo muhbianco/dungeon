@@ -322,7 +322,8 @@ export default function App() {
           <div className="grid">
             {(profile?.slots || []).map((slot) => {
               const owned = gearCharacter?.equipment?.[slot];
-              const shop = profile?.shop?.[slot];
+              const shop = gearCharacter?.shop?.[slot]
+                || profile?.shop?.[gearClass]?.[slot];
               const cost = owned ? owned.nextCost : shop?.buyCost;
               const stats = owned || shop;
               const statLine = equipStatLine(stats);

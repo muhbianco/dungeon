@@ -1,5 +1,5 @@
 import { query } from '../db.js';
-import { EQUIP_CATALOG, EQUIP_SLOTS } from '../models/GameData.js';
+import { EQUIP_SLOTS, getEquipItem } from '../models/GameData.js';
 
 export default class EquipmentFinder {
   static async listByCharacter(characterId) {
@@ -22,13 +22,18 @@ export default class EquipmentFinder {
     return rows[0] || null;
   }
 
-  static async upsert(characterId, slot, itemLevel = 1) {
-    if (!EQUIP_SLOTS.includes(slot) || !EQUIP_CATALOG[slot]) {
+  static async upsert(characterId, classId, slot, itemLevel = 1) {
+    if (!EQUIP_SLOTS.includes(slot)) {
       const err = new Error('Slot inválido');
       err.status = 400;
       throw err;
     }
-    const item = EQUIP_CATALOG[slot];
+    const item = getEquipItem(classId, slot);
+    if (!item) {
+      const err = new Error('Equipamento inválido para a classe');
+      err.status = 400;
+      throw err;
+    }
     await query(
       `INSERT INTO character_equipment (character_id, slot, item_key, item_level, rarity)
        VALUES (:characterId, :slot, :itemKey, :itemLevel, 'common')
