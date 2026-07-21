@@ -6,9 +6,9 @@
 # DB: MariaDB do HOST (preencher envs no Portainer)
 #
 # Fluxo:
-# 1. Criar DB + schema (sql/schema.sql) no MariaDB da máquina
-# 2. ./build.sh prod
-# 3. Portainer → Stacks → colar este YAML → preencher envs → Deploy
+# 1. ./build.sh prod
+# 2. Portainer → Stacks → colar este YAML → preencher DB_* → Deploy
+# 3. No boot o app cria o database + tabelas (sql/schema.sql) sozinho
 # =============================================================================
 
 version: "3.8"

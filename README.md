@@ -14,10 +14,11 @@ RPG Roguelite (Node + React + MariaDB).
 ```bash
 cp .env.example .env
 # preencher DB_*
-mysql -u root -p < sql/schema.sql   # após CREATE DATABASE dungeon_descent
 npm run install:all
 npm run dev
 ```
+
+No boot o servidor cria o database + tabelas automaticamente (`sql/schema.sql`).
 
 ## Deploy
 
@@ -26,3 +27,4 @@ npm run dev
 ```
 
 No Portainer: colar `docker-stack.yml`, preencher `DB_USER`, `DB_PASSWORD`, `DB_NAME`.
+O usuário do MariaDB precisa de permissão para `CREATE DATABASE`.

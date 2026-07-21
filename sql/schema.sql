@@ -1,5 +1,11 @@
 -- Dungeon Descent — schema MariaDB
--- Criar DB antes: CREATE DATABASE dungeon_descent CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- Aplicado automaticamente no boot (server/migrate.js).
+
+CREATE DATABASE IF NOT EXISTS dungeon_descent
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+USE dungeon_descent;
 
 CREATE TABLE IF NOT EXISTS players (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

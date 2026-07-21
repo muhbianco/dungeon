@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import cors from 'cors';
 import config from './config.js';
 import { pingDb } from './db.js';
+import { migrate } from './migrate.js';
 import PlayerController from './controllers/PlayerController.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -61,7 +62,7 @@ if (config.nodeEnv === 'production') {
     },
   }));
   app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api') || req.path === '/health') return next();
+    if (req.path.startsWith('/api') || req.path === '/health' || req.path === '/ready') return next();
     res.sendFile(path.join(clientDist, 'index.html'));
   });
 }
@@ -73,6 +74,17 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-app.listen(config.port, () => {
-  console.log(`[dungeon] listening on :${config.port} env=${config.nodeEnv}`);
-});
+async function start() {
+  try {
+    await migrate();
+  } catch (err) {
+    console.error('[dungeon] migrate falhou:', err.message);
+    console.error('[dungeon] confira DB_HOST/DB_USER/DB_PASSWORD/DB_NAME no Portainer');
+  }
+
+  app.listen(config.port, () => {
+    console.log(`[dungeon] listening on :${config.port} env=${config.nodeEnv} db=${config.db.database}`);
+  });
+}
+
+start();

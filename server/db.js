@@ -3,6 +3,13 @@ import config from './config.js';
 
 let pool = null;
 
+export function resetPool() {
+  if (pool) {
+    pool.end().catch(() => {});
+    pool = null;
+  }
+}
+
 export function getPool() {
   if (!pool) {
     pool = mysql.createPool({
