@@ -16,9 +16,29 @@ app.use(cors({
 app.use(express.json({ limit: '64kb' }));
 
 app.get('/health', async (_req, res) => {
+  let db = false;
+  let dbError = null;
+  try {
+    db = await pingDb();
+  } catch (err) {
+    dbError = err.message;
+  }
+  // Liveness: processo no ar. DB pode falhar sem derrubar o container.
+  res.status(200).json({
+    ok: true,
+    db,
+    dbError,
+    env: config.nodeEnv,
+  });
+});
+
+app.get('/ready', async (_req, res) => {
   try {
     const dbOk = await pingDb();
-    res.json({ ok: true, db: dbOk, env: config.nodeEnv });
+    if (!dbOk) {
+      return res.status(503).json({ ok: false, db: false });
+    }
+    res.json({ ok: true, db: true });
   } catch (err) {
     res.status(503).json({ ok: false, db: false, error: err.message });
   }
