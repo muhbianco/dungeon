@@ -23,6 +23,22 @@ function equipStatLine(item) {
   return `${item.statLabel} ${formatBonus(item.currentBonus)} → ${formatBonus(item.nextBonus)}`;
 }
 
+function formatPercent(n) {
+  const value = Number(n) || 0;
+  if (Number.isInteger(value)) return `${value}%`;
+  return `${value.toFixed(1).replace(/\.0$/, '')}%`;
+}
+
+function upgradeStatLine(item, level) {
+  const pct = Number(item?.percentPerLevel) || 0;
+  if (!pct) return null;
+  const maxLevel = item.costs?.length || 0;
+  const current = level * pct;
+  const next = Math.min(level + 1, maxLevel) * pct;
+  if (level >= maxLevel) return `+${formatPercent(current)} (máx)`;
+  return `+${formatPercent(current)} → +${formatPercent(next)}`;
+}
+
 function authMessageFromQuery() {
   const params = new URLSearchParams(window.location.search);
   const auth = params.get('auth');
@@ -375,11 +391,13 @@ export default function App() {
               const level = profile?.upgrades?.[key] ?? 0;
               const maxed = level >= item.costs.length;
               const cost = maxed ? null : item.costs[level];
+              const statLine = upgradeStatLine(item, level);
               return (
                 <div key={key} className="upgrade">
                   <div>
                     <strong>{item.label}</strong>
                     <p className="muted">Nível {level}/{item.costs.length}</p>
+                    {statLine ? <p className="equip-stat">{statLine}</p> : null}
                   </div>
                   <button
                     type="button"

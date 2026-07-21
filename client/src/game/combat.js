@@ -37,13 +37,24 @@ export function buildPlayerCombatant(classData, upgrades = {}, options = {}) {
   const u = (key) => upgrades[key] || 0;
   const equipDefense = equip.defense || 0;
 
-  const maxHp = Math.floor((40 + attrs.con * 8) * (1 + u('max_hp') * 0.08));
-  let defense = attrs.con * 1.2 + u('defense') * 2 + equipDefense;
-  let physical = attrs.str * 2.2 + u('physical_damage') * 2.5;
-  let magic = attrs.int * 2.4 + u('magic_damage') * 2.5;
-  let critChance = 0.04 + attrs.dex * 0.008 + u('crit_chance') * 0.015;
-  const attackIntervalMs = Math.max(280, 900 - attrs.agi * 35 - u('speed') * 40);
-  const regen = (classData?.id === 'cleric' ? 1.2 : 0) + u('regen') * 0.4;
+  // percentPerLevel alinhado ao catálogo do Guardião
+  const hpPct = u('max_hp') * 0.08;
+  const physPct = u('physical_damage') * 0.08;
+  const magPct = u('magic_damage') * 0.08;
+  const defPct = u('defense') * 0.08;
+  const spdPct = u('speed') * 0.05;
+  const critPctPoints = u('crit_chance') * 0.015;
+  const regenPct = u('regen') * 0.12;
+
+  const maxHp = Math.floor((40 + attrs.con * 8) * (1 + hpPct));
+  let defense = (attrs.con * 1.2 + equipDefense) * (1 + defPct);
+  let physical = (attrs.str * 2.2) * (1 + physPct);
+  let magic = (attrs.int * 2.4) * (1 + magPct);
+  let critChance = 0.04 + attrs.dex * 0.008 + critPctPoints;
+  const baseInterval = Math.max(280, 900 - attrs.agi * 35);
+  const attackIntervalMs = Math.max(220, Math.floor(baseInterval / (1 + spdPct)));
+  const baseRegen = classData?.id === 'cleric' ? 1.2 : 0.35;
+  const regen = baseRegen * (1 + regenPct);
 
   if (classData?.id === 'warrior') defense *= 1.15;
   if (classData?.id === 'archer') critChance += 0.1;

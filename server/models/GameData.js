@@ -1,16 +1,95 @@
+const STANDARD_COSTS = [10, 20, 35, 55, 80, 115, 160, 220, 300, 400];
+const PREMIUM_COSTS = [15, 30, 50, 75, 110, 155, 215, 290, 380, 500];
+
 export const UPGRADE_CATALOG = Object.freeze({
-  max_hp: { label: 'Vida Máxima', costs: [10, 25, 50, 90, 150] },
-  physical_damage: { label: 'Dano Físico', costs: [10, 25, 50, 90, 150] },
-  magic_damage: { label: 'Dano Mágico', costs: [10, 25, 50, 90, 150] },
-  defense: { label: 'Defesa', costs: [10, 25, 50, 90, 150] },
-  speed: { label: 'Velocidade', costs: [10, 25, 50, 90, 150] },
-  crit_chance: { label: 'Chance Crítica', costs: [15, 35, 70, 120, 200] },
-  gold_gain: { label: 'Ouro Obtido', costs: [10, 25, 50, 90, 150] },
-  xp_gain: { label: 'XP Obtida', costs: [10, 25, 50, 90, 150] },
-  regen: { label: 'Regeneração', costs: [15, 35, 70, 120, 200] },
-  loot_chance: { label: 'Chance de Equipamentos', costs: [15, 35, 70, 120, 200] },
-  rare_loot_chance: { label: 'Chance de Equipamentos Raros', costs: [20, 45, 90, 160, 260] },
+  max_hp: {
+    label: 'Vida Máxima',
+    description: 'Aumenta a vida máxima',
+    percentPerLevel: 8,
+    costs: STANDARD_COSTS,
+  },
+  physical_damage: {
+    label: 'Dano Físico',
+    description: 'Aumenta o dano físico',
+    percentPerLevel: 8,
+    costs: STANDARD_COSTS,
+  },
+  magic_damage: {
+    label: 'Dano Mágico',
+    description: 'Aumenta o dano mágico',
+    percentPerLevel: 8,
+    costs: STANDARD_COSTS,
+  },
+  defense: {
+    label: 'Defesa',
+    description: 'Aumenta a defesa',
+    percentPerLevel: 8,
+    costs: STANDARD_COSTS,
+  },
+  speed: {
+    label: 'Velocidade',
+    description: 'Aumenta a velocidade de ataque',
+    percentPerLevel: 5,
+    costs: STANDARD_COSTS,
+  },
+  crit_chance: {
+    label: 'Chance Crítica',
+    description: 'Aumenta a chance de crítico',
+    percentPerLevel: 1.5,
+    costs: PREMIUM_COSTS,
+  },
+  gold_gain: {
+    label: 'Ouro Obtido',
+    description: 'Aumenta o ouro ganho nas runs',
+    percentPerLevel: 8,
+    costs: STANDARD_COSTS,
+  },
+  xp_gain: {
+    label: 'XP Obtida',
+    description: 'Aumenta a XP ganha nas runs',
+    percentPerLevel: 8,
+    costs: STANDARD_COSTS,
+  },
+  essence_gain: {
+    label: 'Essência Obtida',
+    description: 'Aumenta as essências ao encerrar a run',
+    percentPerLevel: 10,
+    costs: PREMIUM_COSTS,
+  },
+  regen: {
+    label: 'Regeneração',
+    description: 'Aumenta a regeneração de vida',
+    percentPerLevel: 12,
+    costs: PREMIUM_COSTS,
+  },
+  loot_chance: {
+    label: 'Chance de Equipamentos',
+    description: 'Aumenta a chance de encontrar equipamentos',
+    percentPerLevel: 5,
+    costs: PREMIUM_COSTS,
+  },
+  rare_loot_chance: {
+    label: 'Chance de Equipamentos Raros',
+    description: 'Aumenta a chance de equipamentos raros',
+    percentPerLevel: 3,
+    costs: PREMIUM_COSTS,
+  },
 });
+
+export function describeUpgrade(upgradeKey, level = 0) {
+  const item = UPGRADE_CATALOG[upgradeKey];
+  if (!item) return null;
+  const lv = Math.max(0, Math.floor(Number(level) || 0));
+  const maxLevel = item.costs.length;
+  const pct = item.percentPerLevel;
+  return {
+    currentPercent: lv * pct,
+    nextPercent: Math.min(lv + 1, maxLevel) * pct,
+    percentPerLevel: pct,
+    maxLevel,
+    maxed: lv >= maxLevel,
+  };
+}
 
 export const CLASSES = Object.freeze({
   warrior: {

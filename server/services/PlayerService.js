@@ -193,7 +193,10 @@ export default class PlayerService {
       attrs,
     });
 
-    const awarded = essencesForFloor(maxFloor);
+    const awardedBase = essencesForFloor(maxFloor);
+    const essenceLevel = await UpgradeFinder.getLevel(player.id, 'essence_gain');
+    const essenceMult = 1 + essenceLevel * 0.10;
+    const awarded = Math.max(0, Math.floor(awardedBase * essenceMult));
     const updatedPlayer = await PlayerFinder.updateProgress(player.id, {
       essences: player.essences + awarded,
       maxFloorRecord: Math.max(player.max_floor_record, maxFloor),
