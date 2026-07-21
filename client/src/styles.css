@@ -127,3 +127,113 @@ button.danger {
 }
 
 .upgrade p { margin: 0.2rem 0 0; }
+
+.combat-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.combat-head h2 { margin: 0 0 0.25rem; }
+
+.combat-meta {
+  display: flex;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  color: var(--muted);
+}
+
+.bars {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.bar-block { display: grid; gap: 0.35rem; }
+
+.bar-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.bar {
+  height: 12px;
+  border-radius: 999px;
+  background: #0c121a;
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  width: 0;
+  transition: width 80ms linear;
+}
+
+.bar-fill.hp { background: linear-gradient(90deg, #2f7d57, #45b07a); }
+.bar-fill.xp { background: linear-gradient(90deg, #8a6a16, #c9a227); }
+.bar-fill.enemy { background: linear-gradient(90deg, #8a3030, #c45c5c); }
+
+.arena {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.enemy-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.95rem;
+  background: #10161f;
+}
+
+.enemy-card.clear {
+  border-color: #2f6b4f;
+  background: #0f1a16;
+}
+
+.wave-dots {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.wave-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #243044;
+  border: 1px solid #33465f;
+}
+
+.wave-dot.current {
+  background: var(--accent);
+  border-color: #e0bf55;
+}
+
+.wave-dot.done {
+  background: var(--ok);
+  border-color: #4aa57d;
+}
+
+.hint { margin: 0.85rem 0 0; }
+.ok-text { color: #7dcea6; }
+
+.combat-log {
+  margin-top: 1rem;
+  max-height: 180px;
+  overflow: auto;
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.combat-log p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}

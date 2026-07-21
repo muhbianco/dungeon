@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, getStoredPlayerKey, storePlayerKey } from './api.js';
+import CombatScreen from './components/CombatScreen.jsx';
 
 const SCREENS = {
   BOOT: 'boot',
@@ -14,7 +15,6 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [classes, setClasses] = useState({});
   const [selectedClass, setSelectedClass] = useState(null);
-  const [runFloor, setRunFloor] = useState(1);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -44,20 +44,19 @@ export default function App() {
     return next;
   }
 
-  async function finishRun() {
+  async function finishRun(payload) {
     setBusy(true);
     setError('');
     try {
       const result = await api.endRun(getStoredPlayerKey(), {
-        maxFloor: runFloor,
-        kills: runFloor * 3,
-        goldEarned: runFloor * 10,
-        playTimeSeconds: runFloor * 30,
+        maxFloor: payload?.maxFloor || 1,
+        kills: payload?.kills || 0,
+        goldEarned: payload?.goldEarned || 0,
+        playTimeSeconds: payload?.playTimeSeconds || 1,
       });
       await refresh();
       setScreen(SCREENS.MENU);
       setSelectedClass(null);
-      setRunFloor(1);
       alert(`Run encerrada. +${result.awardedEssences} essências.`);
     } catch (err) {
       setError(err.message);
@@ -143,10 +142,7 @@ export default function App() {
             <button
               type="button"
               disabled={!selectedClass}
-              onClick={() => {
-                setRunFloor(1);
-                setScreen(SCREENS.RUN);
-              }}
+              onClick={() => setScreen(SCREENS.RUN)}
             >
               Começar Run
             </button>
@@ -154,19 +150,18 @@ export default function App() {
         </section>
       )}
 
-      {screen === SCREENS.RUN && (
-        <section className="panel">
-          <h2>Expedição — {classes[selectedClass]?.name}</h2>
-          <p>Andar atual: <strong>{runFloor}</strong></p>
-          <p className="muted">Combate automático entra na próxima iteração. Por enquanto simule a progressão.</p>
-          <div className="actions">
-            <button type="button" onClick={() => setRunFloor((f) => f + 1)}>Descer andar</button>
-            <button type="button" className="danger" disabled={busy} onClick={finishRun}>
-              Morrer / Encerrar Run
-            </button>
-            <button type="button" className="ghost" onClick={() => setScreen(SCREENS.MENU)}>Abandonar</button>
-          </div>
-        </section>
+      {screen === SCREENS.RUN && selectedClass && (
+        <CombatScreen
+          key={`${selectedClass}-${player?.id || 'run'}`}
+          classData={classes[selectedClass]}
+          upgrades={profile?.upgrades || {}}
+          busy={busy}
+          onDie={finishRun}
+          onAbandon={() => {
+            setSelectedClass(null);
+            setScreen(SCREENS.MENU);
+          }}
+        />
       )}
 
       {screen === SCREENS.GUARDIAN && (
