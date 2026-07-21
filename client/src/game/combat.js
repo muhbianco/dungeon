@@ -74,7 +74,9 @@ export function buildPlayerCombatant(classData, upgrades = {}, options = {}) {
 
   const maxHp = Math.floor((40 + attrs.con * 8) * (1 + hpPct));
   let defense = (attrs.con * 1.2 + equipDefense) * (1 + defPct);
-  let physical = (attrs.str * 2.2) * (1 + physPct);
+  // Arqueiro: dano físico escala com DEX; demais classes físicas com STR
+  const physAttr = classData?.id === 'archer' ? attrs.dex : attrs.str;
+  let physical = (physAttr * 2.2) * (1 + physPct);
   let magic = (attrs.int * 2.4) * (1 + magPct);
   let critChance = 0.04 + attrs.dex * 0.008 + critPctPoints;
   const baseInterval = Math.max(280, 900 - attrs.agi * 35);

@@ -110,7 +110,7 @@ export const CLASSES = Object.freeze({
     name: 'Arqueiro',
     attrs: { str: 4, con: 4, agi: 8, dex: 8, int: 3 },
     levelGain: { str: 0, con: 1, agi: 2, dex: 2, int: 0 },
-    passive: '+10% Chance Crítica',
+    passive: '+10% Crítico · Dano escala com DEX',
   },
   mage: {
     id: 'mage',
@@ -175,13 +175,13 @@ export const CLASS_EQUIP_CATALOG = Object.freeze({
     necklace: { key: 'veteran_amulet', name: 'Amuleto do Veterano', baseCost: 70, stat: 'con', perLevel: 1 },
   },
   archer: {
-    helmet: { key: 'hunter_hood', name: 'Capuz do Caçador', baseCost: 40, stat: 'dex', perLevel: 1 },
+    helmet: { key: 'hunter_hood', name: 'Capuz Reforçado', baseCost: 40, stat: 'defense', perLevel: 1.5 },
     chest: { key: 'leather_vest', name: 'Colete de Couro', baseCost: 60, stat: 'con', perLevel: 1 },
     gloves: { key: 'aim_gloves', name: 'Luvas de Mira', baseCost: 35, stat: 'dex', perLevel: 1 },
-    pants: { key: 'ranger_pants', name: 'Calças do Patrulheiro', baseCost: 45, stat: 'agi', perLevel: 1 },
+    pants: { key: 'ranger_pants', name: 'Calças Blindadas', baseCost: 45, stat: 'defense', perLevel: 1.5 },
     boots: { key: 'swift_boots', name: 'Botas Velozes', baseCost: 40, stat: 'agi', perLevel: 1.5 },
     ring1: { key: 'wind_ring', name: 'Anel do Vento', baseCost: 55, stat: 'agi', perLevel: 1 },
-    ring2: { key: 'crit_ring', name: 'Anel Crítico', baseCost: 55, stat: 'dex', perLevel: 1.5 },
+    ring2: { key: 'guard_ring', name: 'Anel da Guarda', baseCost: 55, stat: 'defense', perLevel: 1.5 },
     necklace: { key: 'hawk_amulet', name: 'Amuleto do Falcão', baseCost: 70, stat: 'dex', perLevel: 1 },
   },
   mage: {
