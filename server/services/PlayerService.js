@@ -25,16 +25,26 @@ import {
   skillPowerMultiplier,
 } from '../models/GameData.js';
 
+function resolveAvatar(player) {
+  const raw = player?.avatar;
+  if (!raw) return null;
+  if (String(raw).startsWith('http')) return String(raw);
+  if (player.discord_id) {
+    const ext = String(raw).startsWith('a_') ? 'gif' : 'png';
+    return `https://cdn.discordapp.com/avatars/${player.discord_id}/${raw}.${ext}?size=64`;
+  }
+  return null;
+}
+
 function serializePlayer(player) {
   return {
     id: player.id,
     playerKey: player.player_key,
     discordId: player.discord_id,
+    googleId: player.google_id,
     displayName: player.display_name,
     globalName: player.global_name,
-    avatar: player.avatar && player.discord_id
-      ? `https://cdn.discordapp.com/avatars/${player.discord_id}/${player.avatar}.${String(player.avatar).startsWith('a_') ? 'gif' : 'png'}?size=64`
-      : null,
+    avatar: resolveAvatar(player),
     essences: player.essences,
     gold: Number(player.gold || 0),
     maxFloorRecord: player.max_floor_record,
@@ -135,6 +145,19 @@ export default class PlayerService {
       displayName: discordUser.username || discordUser.global_name || 'Jogador',
       globalName: discordUser.global_name || null,
       avatar: avatarHash || null,
+    });
+    await StatsFinder.getOrCreate(player.id);
+    await SettingsFinder.getOrCreate(player.id);
+    return player;
+  }
+
+  static async loginFromGoogle(googleUser) {
+    const player = await PlayerFinder.upsertGoogle({
+      playerKey: uuidv4(),
+      googleId: String(googleUser.sub || googleUser.id),
+      displayName: googleUser.name || googleUser.email || 'Jogador',
+      globalName: googleUser.name || null,
+      avatar: googleUser.picture || null,
     });
     await StatsFinder.getOrCreate(player.id);
     await SettingsFinder.getOrCreate(player.id);
@@ -384,9 +407,7 @@ export default class PlayerService {
       rank: index + 1,
       id: row.id,
       name: row.global_name || row.display_name || 'Aventureiro',
-      avatar: row.avatar && row.discord_id
-        ? `https://cdn.discordapp.com/avatars/${row.discord_id}/${row.avatar}.${String(row.avatar).startsWith('a_') ? 'gif' : 'png'}?size=64`
-        : null,
+      avatar: resolveAvatar(row),
       maxFloor: Number(row.max_floor_record) || 0,
       runs: Number(row.runs) || 0,
     }));

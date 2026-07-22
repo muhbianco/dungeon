@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import config from '../config.js';
 import DiscordAuthService from '../auth/DiscordAuthService.js';
+import GoogleAuthService from '../auth/GoogleAuthService.js';
 import {
   setSession,
   clearSession,
@@ -12,6 +13,7 @@ import {
 import PlayerService from '../services/PlayerService.js';
 
 const discordAuth = new DiscordAuthService();
+const googleAuth = new GoogleAuthService();
 
 export function requireAuth(req, res, next) {
   const session = readSession(req);
@@ -26,10 +28,15 @@ export function requireAuth(req, res, next) {
 export default class AuthController {
   static status(req, res) {
     const session = readSession(req);
+    const discordConfigured = discordAuth.isConfigured();
+    const googleConfigured = googleAuth.isConfigured();
     res.json({
-      configured: discordAuth.isConfigured(),
+      configured: discordConfigured || googleConfigured,
+      discordConfigured,
+      googleConfigured,
       authenticated: Boolean(session?.playerId),
       redirectUri: config.discord.redirectUri,
+      googleRedirectUri: config.google.redirectUri,
     });
   }
 
@@ -37,7 +44,7 @@ export default class AuthController {
     if (!discordAuth.isConfigured()) {
       return res.redirect('/?auth=disabled');
     }
-    const state = crypto.randomBytes(16).toString('hex');
+    const state = `d.${crypto.randomBytes(16).toString('hex')}`;
     setStateCookie(res, state);
     return res.redirect(discordAuth.buildAuthUrl(state));
   }
@@ -76,7 +83,54 @@ export default class AuthController {
 
       return res.redirect('/');
     } catch (err) {
-      console.error('[auth] callback failed:', err.message);
+      console.error('[auth] discord callback failed:', err.message);
+      return res.redirect('/?auth=failed');
+    }
+  }
+
+  static googleLogin(req, res) {
+    if (!googleAuth.isConfigured()) {
+      return res.redirect('/?auth=google_disabled');
+    }
+    const state = `g.${crypto.randomBytes(16).toString('hex')}`;
+    setStateCookie(res, state);
+    return res.redirect(googleAuth.buildAuthUrl(state));
+  }
+
+  static async googleCallback(req, res) {
+    try {
+      if (!googleAuth.isConfigured()) {
+        return res.redirect('/?auth=google_disabled');
+      }
+
+      const { code, state, error } = req.query;
+      if (error) return res.redirect(`/?auth=${encodeURIComponent(String(error))}`);
+      if (!code || !state) return res.redirect('/?auth=missing_code');
+
+      const expected = readStateCookie(req);
+      clearStateCookie(res);
+      if (!expected || expected !== state || !String(state).startsWith('g.')) {
+        return res.redirect('/?auth=state_mismatch');
+      }
+
+      const token = await googleAuth.exchangeCode(String(code));
+      const accessToken = token.access_token;
+      if (!accessToken) return res.redirect('/?auth=token_failed');
+
+      const user = await googleAuth.fetchUser(accessToken);
+      if (!user?.sub) return res.redirect('/?auth=failed');
+
+      const player = await PlayerService.loginFromGoogle(user);
+
+      setSession(res, {
+        playerId: player.id,
+        googleId: player.google_id,
+        displayName: player.display_name,
+      });
+
+      return res.redirect('/');
+    } catch (err) {
+      console.error('[auth] google callback failed:', err.message);
       return res.redirect('/?auth=failed');
     }
   }

@@ -11,9 +11,10 @@ CREATE TABLE IF NOT EXISTS players (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   player_key CHAR(36) NOT NULL,
   discord_id VARCHAR(32) NULL,
+  google_id VARCHAR(64) NULL,
   display_name VARCHAR(64) NULL,
   global_name VARCHAR(64) NULL,
-  avatar VARCHAR(128) NULL,
+  avatar VARCHAR(512) NULL,
   essences INT UNSIGNED NOT NULL DEFAULT 0,
   gold BIGINT UNSIGNED NOT NULL DEFAULT 0,
   max_floor_record INT UNSIGNED NOT NULL DEFAULT 0,
@@ -22,7 +23,8 @@ CREATE TABLE IF NOT EXISTS players (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_players_player_key (player_key),
-  UNIQUE KEY uq_players_discord_id (discord_id)
+  UNIQUE KEY uq_players_discord_id (discord_id),
+  UNIQUE KEY uq_players_google_id (google_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS characters (

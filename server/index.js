@@ -8,14 +8,19 @@ import { migrate } from './migrate.js';
 import AuthController, { requireAuth } from './controllers/AuthController.js';
 import PlayerController from './controllers/PlayerController.js';
 import DiscordAuthService from './auth/DiscordAuthService.js';
+import GoogleAuthService from './auth/GoogleAuthService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.set('trust proxy', 1);
 
 const discordAuth = new DiscordAuthService();
+const googleAuth = new GoogleAuthService();
 if (!discordAuth.isConfigured()) {
   console.warn('[auth] Discord OAuth NÃO configurado (DISCORD_* + SESSION_SECRET).');
+}
+if (!googleAuth.isConfigured()) {
+  console.warn('[auth] Google OAuth NÃO configurado (GOOGLE_* + SESSION_SECRET).');
 }
 
 app.use(cors({
@@ -37,7 +42,9 @@ app.get('/health', async (_req, res) => {
     db,
     dbError,
     env: config.nodeEnv,
-    authConfigured: discordAuth.isConfigured(),
+    authConfigured: discordAuth.isConfigured() || googleAuth.isConfigured(),
+    discordConfigured: discordAuth.isConfigured(),
+    googleConfigured: googleAuth.isConfigured(),
   });
 });
 
@@ -54,6 +61,8 @@ app.get('/ready', async (_req, res) => {
 app.get('/auth/status', AuthController.status);
 app.get('/auth/discord/login', AuthController.login);
 app.get('/auth/discord/callback', AuthController.callback);
+app.get('/auth/google/login', AuthController.googleLogin);
+app.get('/auth/google/callback', AuthController.googleCallback);
 app.post('/auth/logout', AuthController.logout);
 
 app.get('/api/meta', PlayerController.meta);

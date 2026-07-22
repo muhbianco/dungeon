@@ -52,6 +52,24 @@ export async function migrate() {
     for (const statement of statements) {
       await connection.query(statement);
     }
+
+    // Patches idempotentes para bases já existentes
+    await connection.query(`USE \`${database}\``);
+    await connection.query(
+      `ALTER TABLE players ADD COLUMN IF NOT EXISTS google_id VARCHAR(64) NULL AFTER discord_id`
+    );
+    await connection.query(
+      `ALTER TABLE players MODIFY COLUMN avatar VARCHAR(512) NULL`
+    );
+    try {
+      await connection.query(
+        `ALTER TABLE players ADD UNIQUE KEY uq_players_google_id (google_id)`
+      );
+    } catch (err) {
+      // índice já existe
+      if (!/Duplicate|exists/i.test(err.message || '')) throw err;
+    }
+
     console.log(`[dungeon] migrate ok — database=${database}`);
   } finally {
     await connection.end();

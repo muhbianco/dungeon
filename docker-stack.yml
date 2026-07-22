@@ -10,7 +10,9 @@
 # 2. Portainer → Stacks → colar este YAML → preencher DB_* + Discord/SESSION → Deploy
 # 3. No Discord Developer Portal, adicionar redirect:
 #    https://dungeon.muhbianco.com.br/auth/discord/callback
-# 4. No boot o app cria/atualiza o database + tabelas (sql/schema.sql)
+# 4. No Google Cloud Console (OAuth client), adicionar redirect:
+#    https://dungeon.muhbianco.com.br/auth/google/callback
+# 5. No boot o app cria/atualiza o database + tabelas (sql/schema.sql)
 # =============================================================================
 
 version: "3.8"
@@ -31,6 +33,8 @@ services:
       DISCORD_CLIENT_ID: ""
       DISCORD_CLIENT_SECRET: ""
       DISCORD_SERVER_ID: ""
+      GOOGLE_CLIENT_ID: ""
+      GOOGLE_CLIENT_SECRET: ""
       SESSION_SECRET: ""
     extra_hosts:
       - "host.docker.internal:host-gateway"

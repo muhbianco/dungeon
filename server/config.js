@@ -24,6 +24,12 @@ const config = {
     scope: 'identify guilds',
     apiBase: 'https://discord.com/api/v10',
   },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || '',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+    redirectUri: `${publicUrl}/auth/google/callback`,
+    scope: 'openid email profile',
+  },
   session: {
     secret: process.env.SESSION_SECRET || '',
     cookieName: 'dd_session',

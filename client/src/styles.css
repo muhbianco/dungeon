@@ -301,6 +301,21 @@ button.danger {
   border-radius: 8px;
 }
 
+.btn-link.discord {
+  border-color: #5865f2;
+  background: linear-gradient(180deg, #5865f2, #4752c4);
+}
+
+.btn-link.google {
+  border-color: #4285f4;
+  background: linear-gradient(180deg, #4285f4, #3367d6);
+}
+
+.login-actions {
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 .char-list {
   margin-top: 1.25rem;
 }

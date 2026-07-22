@@ -59,10 +59,13 @@ function authMessageFromQuery() {
   if (!auth) return '';
   const map = {
     disabled: 'Login Discord não configurado no servidor.',
+    google_disabled: 'Login Google não configurado no servidor.',
     not_in_guild: 'Você precisa estar no servidor Discord permitido.',
     state_mismatch: 'Sessão OAuth inválida. Tente de novo.',
-    failed: 'Falha no login Discord.',
+    failed: 'Falha no login.',
     denied: 'Login negado.',
+    missing_code: 'Login incompleto. Tente de novo.',
+    token_failed: 'Falha ao obter token OAuth.',
   };
   return map[auth] || `Auth: ${auth}`;
 }
@@ -78,6 +81,8 @@ export default function App() {
   const [error, setError] = useState(authMessageFromQuery());
   const [busy, setBusy] = useState(false);
   const [authConfigured, setAuthConfigured] = useState(true);
+  const [discordConfigured, setDiscordConfigured] = useState(true);
+  const [googleConfigured, setGoogleConfigured] = useState(false);
 
   const activeCharacter = useMemo(() => {
     if (!selectedClass || !profile?.characters) return null;
@@ -110,6 +115,8 @@ export default function App() {
         const status = await api.authStatus();
         if (!alive) return;
         setAuthConfigured(status.configured);
+        setDiscordConfigured(status.discordConfigured ?? status.configured);
+        setGoogleConfigured(Boolean(status.googleConfigured));
         if (!status.authenticated) {
           setScreen(SCREENS.LOGIN);
           return;
@@ -283,13 +290,18 @@ export default function App() {
       <div className="shell">
         <section className="panel login-panel">
           <h1 className="brand">Dungeon Descent</h1>
-          <p className="muted">Entre com Discord para salvar level, ouro e equipamentos.</p>
+          <p className="muted">Entre com Discord ou Google para salvar progresso.</p>
           {error ? <p className="error">{error}</p> : null}
           {!authConfigured ? (
-            <p className="error">Auth Discord não configurado (envs no Portainer).</p>
+            <p className="error">Nenhum login configurado (envs no Portainer).</p>
           ) : (
-            <div className="actions">
-              <a className="btn-link" href="/auth/discord/login">Entrar com Discord</a>
+            <div className="actions login-actions">
+              {discordConfigured ? (
+                <a className="btn-link discord" href="/auth/discord/login">Entrar com Discord</a>
+              ) : null}
+              {googleConfigured ? (
+                <a className="btn-link google" href="/auth/google/login">Entrar com Google</a>
+              ) : null}
             </div>
           )}
         </section>

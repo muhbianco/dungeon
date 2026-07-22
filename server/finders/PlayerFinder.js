@@ -1,6 +1,6 @@
 import { query } from '../db.js';
 
-const PLAYER_COLS = `id, player_key, discord_id, display_name, global_name, avatar,
+const PLAYER_COLS = `id, player_key, discord_id, google_id, display_name, global_name, avatar,
   essences, gold, max_floor_record, last_login, created_at, updated_at`;
 
 export default class PlayerFinder {
@@ -28,17 +28,26 @@ export default class PlayerFinder {
     return rows[0] || null;
   }
 
+  static async findByGoogleId(googleId) {
+    const rows = await query(
+      `SELECT ${PLAYER_COLS} FROM players WHERE google_id = :googleId LIMIT 1`,
+      { googleId }
+    );
+    return rows[0] || null;
+  }
+
   static async create({
     playerKey,
     discordId = null,
+    googleId = null,
     displayName = null,
     globalName = null,
     avatar = null,
   }) {
     const result = await query(
-      `INSERT INTO players (player_key, discord_id, display_name, global_name, avatar, last_login)
-       VALUES (:playerKey, :discordId, :displayName, :globalName, :avatar, NOW())`,
-      { playerKey, discordId, displayName, globalName, avatar }
+      `INSERT INTO players (player_key, discord_id, google_id, display_name, global_name, avatar, last_login)
+       VALUES (:playerKey, :discordId, :googleId, :displayName, :globalName, :avatar, NOW())`,
+      { playerKey, discordId, googleId, displayName, globalName, avatar }
     );
     return this.findById(result.insertId);
   }
@@ -66,6 +75,35 @@ export default class PlayerFinder {
     return this.create({
       playerKey,
       discordId,
+      displayName,
+      globalName,
+      avatar,
+    });
+  }
+
+  static async upsertGoogle({
+    playerKey,
+    googleId,
+    displayName,
+    globalName,
+    avatar,
+  }) {
+    const existing = await this.findByGoogleId(googleId);
+    if (existing) {
+      await query(
+        `UPDATE players
+         SET display_name = :displayName,
+             global_name = :globalName,
+             avatar = :avatar,
+             last_login = NOW()
+         WHERE id = :id`,
+        { id: existing.id, displayName, globalName, avatar }
+      );
+      return this.findById(existing.id);
+    }
+    return this.create({
+      playerKey,
+      googleId,
       displayName,
       globalName,
       avatar,
@@ -115,6 +153,7 @@ export default class PlayerFinder {
               p.global_name,
               p.avatar,
               p.discord_id,
+              p.google_id,
               p.max_floor_record,
               COALESCE(s.runs, 0) AS runs
        FROM players p
