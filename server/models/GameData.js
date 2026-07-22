@@ -127,7 +127,7 @@ export const CLASSES = Object.freeze({
     name: 'Clérigo',
     attrs: { str: 4, con: 7, agi: 3, dex: 4, int: 8 },
     levelGain: { str: 1, con: 2, agi: 0, dex: 0, int: 2 },
-    passive: 'Regen alta · Dano mágico (INT)',
+    passive: 'Regen acima da média · Dano mágico (INT)',
     damageStyle: 'magic',
   },
 });
@@ -742,11 +742,11 @@ export const CLASS_SKILLS = Object.freeze({
     {
       key: 'heal',
       name: 'Cura',
-      description: 'Restaura uma porção significativa da vida.',
+      description: 'Restaura uma porção da vida.',
       kind: 'heal',
       damageType: 'magic',
-      cooldownMs: 8000,
-      healPower: 0.28,
+      cooldownMs: 9000,
+      healPower: 0.16,
       priority: 90,
     },
     {
@@ -762,11 +762,11 @@ export const CLASS_SKILLS = Object.freeze({
     {
       key: 'blessing',
       name: 'Bênção',
-      description: 'Cura menor e constante do espírito.',
+      description: 'Cura menor do espírito.',
       kind: 'heal',
       damageType: 'magic',
-      cooldownMs: 11000,
-      healPower: 0.15,
+      cooldownMs: 12000,
+      healPower: 0.09,
       priority: 70,
     },
   ],

@@ -24,7 +24,8 @@ export function wavesForFloor(floor) {
   return 3;
 }
 
-const HEAL_HP_THRESHOLD = 0.55;
+const HEAL_HP_THRESHOLD = 0.38;
+const HEAL_MIN_MISSING_PCT = 0.10;
 const SKILL_CDR_PER_LEVEL = 0.05;
 const SKILL_CDR_CAP = 0.75;
 
@@ -85,7 +86,7 @@ export function buildPlayerCombatant(classData, upgrades = {}, options = {}) {
   let critChance = 0.04 + attrs.dex * 0.008 + critPctPoints;
   const baseInterval = Math.max(280, 900 - attrs.agi * 35);
   const attackIntervalMs = Math.max(220, Math.floor(baseInterval / (1 + spdPct)));
-  const baseRegen = classData?.id === 'cleric' ? 1.2 : 0.35;
+  const baseRegen = classData?.id === 'cleric' ? 0.5 : 0.35;
   const regen = baseRegen * (1 + regenPct);
 
   if (classData?.id === 'warrior') defense *= 1.15;
@@ -252,9 +253,17 @@ export function tryAutoCastSkill(player, enemy) {
 
   const mult = skill.powerMult || 1;
   if (skill.kind === 'heal') {
+    // Curas escalam mais devagar que dano (+6%/nível vs +12%)
+    const healMult = 1 + Math.max(0, (skill.level || 1) - 1) * 0.06;
+    const missing = player.maxHp - player.hp;
+    if (missing < player.maxHp * HEAL_MIN_MISSING_PCT) {
+      skill.cooldownRemaining = 0;
+      player.skillGcdRemaining = 0;
+      return null;
+    }
     const amount = Math.max(
       1,
-      Math.floor(player.maxHp * (skill.healPower || 0.15) * mult * (0.92 + Math.random() * 0.16))
+      Math.floor(player.maxHp * (skill.healPower || 0.15) * healMult * (0.92 + Math.random() * 0.16))
     );
     const before = player.hp;
     player.hp = Math.min(player.maxHp, player.hp + amount);
