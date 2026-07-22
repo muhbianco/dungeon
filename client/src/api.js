@@ -19,6 +19,7 @@ export const api = {
   logout: () => request('/auth/logout', { method: 'POST' }),
   me: () => request('/api/player/me'),
   meta: () => request('/api/meta'),
+  ranking: () => request('/api/ranking'),
   ensureCharacter: (classId) =>
     request('/api/player/character', { method: 'POST', body: { classId } }),
   endRun: (payload) =>

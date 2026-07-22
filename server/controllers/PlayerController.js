@@ -82,4 +82,14 @@ export default class PlayerController {
   static meta(_req, res) {
     res.json({ classes: CLASSES, skills: CLASS_SKILLS });
   }
+
+  static async ranking(req, res, next) {
+    try {
+      const limit = Number(req.query?.limit) || 50;
+      const ranking = await PlayerService.getRanking(limit);
+      res.json({ ranking });
+    } catch (err) {
+      next(err);
+    }
+  }
 }

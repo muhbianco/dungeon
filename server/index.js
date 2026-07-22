@@ -57,6 +57,7 @@ app.get('/auth/discord/callback', AuthController.callback);
 app.post('/auth/logout', AuthController.logout);
 
 app.get('/api/meta', PlayerController.meta);
+app.get('/api/ranking', requireAuth, PlayerController.ranking);
 app.get('/api/player/me', requireAuth, PlayerController.me);
 app.post('/api/player/character', requireAuth, PlayerController.ensureCharacter);
 app.post('/api/player/run-end', requireAuth, PlayerController.endRun);

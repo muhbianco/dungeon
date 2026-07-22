@@ -103,28 +103,32 @@ export const CLASSES = Object.freeze({
     name: 'Cavaleiro',
     attrs: { str: 8, con: 8, agi: 4, dex: 4, int: 2 },
     levelGain: { str: 2, con: 2, agi: 0, dex: 1, int: 0 },
-    passive: '+15% Defesa',
+    passive: '+15% Defesa · Dano melee (STR)',
+    damageStyle: 'melee',
   },
   archer: {
     id: 'archer',
     name: 'Arqueiro',
     attrs: { str: 4, con: 4, agi: 8, dex: 8, int: 3 },
     levelGain: { str: 0, con: 1, agi: 2, dex: 2, int: 0 },
-    passive: '+10% Crítico · Dano escala com DEX',
+    passive: '+10% Crítico · Dano ranged (DEX)',
+    damageStyle: 'ranged',
   },
   mage: {
     id: 'mage',
     name: 'Mago',
     attrs: { str: 2, con: 4, agi: 4, dex: 5, int: 10 },
     levelGain: { str: 0, con: 1, agi: 1, dex: 1, int: 2 },
-    passive: '+20% Dano Mágico',
+    passive: '+20% Magia · Dano mágico (INT)',
+    damageStyle: 'magic',
   },
   cleric: {
     id: 'cleric',
     name: 'Clérigo',
     attrs: { str: 4, con: 7, agi: 3, dex: 4, int: 8 },
     levelGain: { str: 1, con: 2, agi: 0, dex: 0, int: 2 },
-    passive: 'Regenera HP lentamente',
+    passive: 'Regen alta · Dano mágico (INT)',
+    damageStyle: 'magic',
   },
 });
 
@@ -160,49 +164,305 @@ export const STAT_LABELS = Object.freeze({
 });
 
 /**
- * Equipamentos por classe — cada classe recebe atributos alinhados ao playstyle.
- * Mesmos slots, nomes/stats diferentes.
+ * Equipamentos por classe — 2 atributos por item, alinhados ao playstyle.
+ * melee (warrior): STR · ranged (archer): DEX · magic (mage/cleric): INT
  */
 export const CLASS_EQUIP_CATALOG = Object.freeze({
   warrior: {
-    helmet: { key: 'iron_helm', name: 'Elmo de Ferro', baseCost: 40, stat: 'defense', perLevel: 2 },
-    chest: { key: 'iron_chest', name: 'Peitoral de Ferro', baseCost: 60, stat: 'con', perLevel: 1 },
-    gloves: { key: 'iron_gloves', name: 'Manoplas de Guerra', baseCost: 35, stat: 'str', perLevel: 1 },
-    pants: { key: 'iron_pants', name: 'Grevas de Ferro', baseCost: 45, stat: 'defense', perLevel: 1.5 },
-    boots: { key: 'war_boots', name: 'Botas Pesadas', baseCost: 40, stat: 'con', perLevel: 1 },
-    ring1: { key: 'might_ring', name: 'Anel da Força', baseCost: 55, stat: 'str', perLevel: 1 },
-    ring2: { key: 'bulwark_ring', name: 'Anel do Baluarte', baseCost: 55, stat: 'defense', perLevel: 1.5 },
-    necklace: { key: 'veteran_amulet', name: 'Amuleto do Veterano', baseCost: 70, stat: 'con', perLevel: 1 },
+    helmet: {
+      key: 'iron_helm',
+      name: 'Elmo de Ferro',
+      baseCost: 40,
+      stats: [
+        { stat: 'defense', perLevel: 1.5 },
+        { stat: 'con', perLevel: 0.5 },
+      ],
+    },
+    chest: {
+      key: 'iron_chest',
+      name: 'Peitoral de Ferro',
+      baseCost: 60,
+      stats: [
+        { stat: 'con', perLevel: 1 },
+        { stat: 'defense', perLevel: 1 },
+      ],
+    },
+    gloves: {
+      key: 'iron_gloves',
+      name: 'Manoplas de Guerra',
+      baseCost: 35,
+      stats: [
+        { stat: 'str', perLevel: 1 },
+        { stat: 'con', perLevel: 0.5 },
+      ],
+    },
+    pants: {
+      key: 'iron_pants',
+      name: 'Grevas de Ferro',
+      baseCost: 45,
+      stats: [
+        { stat: 'defense', perLevel: 1.5 },
+        { stat: 'str', perLevel: 0.5 },
+      ],
+    },
+    boots: {
+      key: 'war_boots',
+      name: 'Botas Pesadas',
+      baseCost: 40,
+      stats: [
+        { stat: 'con', perLevel: 1 },
+        { stat: 'agi', perLevel: 0.5 },
+      ],
+    },
+    ring1: {
+      key: 'might_ring',
+      name: 'Anel da Força',
+      baseCost: 55,
+      stats: [
+        { stat: 'str', perLevel: 1 },
+        { stat: 'con', perLevel: 0.5 },
+      ],
+    },
+    ring2: {
+      key: 'bulwark_ring',
+      name: 'Anel do Baluarte',
+      baseCost: 55,
+      stats: [
+        { stat: 'defense', perLevel: 1.5 },
+        { stat: 'str', perLevel: 0.5 },
+      ],
+    },
+    necklace: {
+      key: 'veteran_amulet',
+      name: 'Amuleto do Veterano',
+      baseCost: 70,
+      stats: [
+        { stat: 'str', perLevel: 1 },
+        { stat: 'defense', perLevel: 1 },
+      ],
+    },
   },
   archer: {
-    helmet: { key: 'hunter_hood', name: 'Capuz Reforçado', baseCost: 40, stat: 'defense', perLevel: 1.5 },
-    chest: { key: 'leather_vest', name: 'Colete de Couro', baseCost: 60, stat: 'con', perLevel: 1 },
-    gloves: { key: 'aim_gloves', name: 'Luvas de Mira', baseCost: 35, stat: 'dex', perLevel: 1 },
-    pants: { key: 'ranger_pants', name: 'Calças Blindadas', baseCost: 45, stat: 'defense', perLevel: 1.5 },
-    boots: { key: 'swift_boots', name: 'Botas Velozes', baseCost: 40, stat: 'agi', perLevel: 1.5 },
-    ring1: { key: 'wind_ring', name: 'Anel do Vento', baseCost: 55, stat: 'agi', perLevel: 1 },
-    ring2: { key: 'guard_ring', name: 'Anel da Guarda', baseCost: 55, stat: 'defense', perLevel: 1.5 },
-    necklace: { key: 'hawk_amulet', name: 'Amuleto do Falcão', baseCost: 70, stat: 'dex', perLevel: 1 },
+    helmet: {
+      key: 'hunter_hood',
+      name: 'Capuz Reforçado',
+      baseCost: 40,
+      stats: [
+        { stat: 'defense', perLevel: 1.5 },
+        { stat: 'dex', perLevel: 0.5 },
+      ],
+    },
+    chest: {
+      key: 'leather_vest',
+      name: 'Colete de Couro',
+      baseCost: 60,
+      stats: [
+        { stat: 'con', perLevel: 1 },
+        { stat: 'defense', perLevel: 1 },
+      ],
+    },
+    gloves: {
+      key: 'aim_gloves',
+      name: 'Luvas de Mira',
+      baseCost: 35,
+      stats: [
+        { stat: 'dex', perLevel: 1 },
+        { stat: 'agi', perLevel: 0.5 },
+      ],
+    },
+    pants: {
+      key: 'ranger_pants',
+      name: 'Calças Blindadas',
+      baseCost: 45,
+      stats: [
+        { stat: 'defense', perLevel: 1.5 },
+        { stat: 'agi', perLevel: 0.5 },
+      ],
+    },
+    boots: {
+      key: 'swift_boots',
+      name: 'Botas Velozes',
+      baseCost: 40,
+      stats: [
+        { stat: 'agi', perLevel: 1.5 },
+        { stat: 'dex', perLevel: 0.5 },
+      ],
+    },
+    ring1: {
+      key: 'wind_ring',
+      name: 'Anel do Vento',
+      baseCost: 55,
+      stats: [
+        { stat: 'agi', perLevel: 1 },
+        { stat: 'dex', perLevel: 0.5 },
+      ],
+    },
+    ring2: {
+      key: 'guard_ring',
+      name: 'Anel da Guarda',
+      baseCost: 55,
+      stats: [
+        { stat: 'defense', perLevel: 1.5 },
+        { stat: 'con', perLevel: 0.5 },
+      ],
+    },
+    necklace: {
+      key: 'hawk_amulet',
+      name: 'Amuleto do Falcão',
+      baseCost: 70,
+      stats: [
+        { stat: 'dex', perLevel: 1 },
+        { stat: 'agi', perLevel: 1 },
+      ],
+    },
   },
   mage: {
-    helmet: { key: 'arcane_hood', name: 'Capuz Arcano', baseCost: 40, stat: 'int', perLevel: 1 },
-    chest: { key: 'mage_robe', name: 'Manto Arcano', baseCost: 60, stat: 'con', perLevel: 1 },
-    gloves: { key: 'rune_gloves', name: 'Luvas Rúnicas', baseCost: 35, stat: 'int', perLevel: 1.5 },
-    pants: { key: 'silk_pants', name: 'Calças de Seda', baseCost: 45, stat: 'int', perLevel: 1 },
-    boots: { key: 'channel_boots', name: 'Botas do Canalizador', baseCost: 40, stat: 'agi', perLevel: 1 },
-    ring1: { key: 'focus_ring', name: 'Anel do Foco', baseCost: 55, stat: 'int', perLevel: 1 },
-    ring2: { key: 'ward_ring', name: 'Anel de Proteção', baseCost: 55, stat: 'defense', perLevel: 1.5 },
-    necklace: { key: 'mystic_amulet', name: 'Amuleto Místico', baseCost: 70, stat: 'int', perLevel: 1.5 },
+    helmet: {
+      key: 'arcane_hood',
+      name: 'Capuz Arcano',
+      baseCost: 40,
+      stats: [
+        { stat: 'int', perLevel: 1 },
+        { stat: 'defense', perLevel: 0.5 },
+      ],
+    },
+    chest: {
+      key: 'mage_robe',
+      name: 'Manto Arcano',
+      baseCost: 60,
+      stats: [
+        { stat: 'con', perLevel: 1 },
+        { stat: 'int', perLevel: 0.5 },
+      ],
+    },
+    gloves: {
+      key: 'rune_gloves',
+      name: 'Luvas Rúnicas',
+      baseCost: 35,
+      stats: [
+        { stat: 'int', perLevel: 1.5 },
+        { stat: 'agi', perLevel: 0.5 },
+      ],
+    },
+    pants: {
+      key: 'silk_pants',
+      name: 'Calças de Seda',
+      baseCost: 45,
+      stats: [
+        { stat: 'int', perLevel: 1 },
+        { stat: 'con', perLevel: 0.5 },
+      ],
+    },
+    boots: {
+      key: 'channel_boots',
+      name: 'Botas do Canalizador',
+      baseCost: 40,
+      stats: [
+        { stat: 'agi', perLevel: 1 },
+        { stat: 'defense', perLevel: 0.5 },
+      ],
+    },
+    ring1: {
+      key: 'focus_ring',
+      name: 'Anel do Foco',
+      baseCost: 55,
+      stats: [
+        { stat: 'int', perLevel: 1 },
+        { stat: 'con', perLevel: 0.5 },
+      ],
+    },
+    ring2: {
+      key: 'ward_ring',
+      name: 'Anel de Proteção',
+      baseCost: 55,
+      stats: [
+        { stat: 'defense', perLevel: 1.5 },
+        { stat: 'int', perLevel: 0.5 },
+      ],
+    },
+    necklace: {
+      key: 'mystic_amulet',
+      name: 'Amuleto Místico',
+      baseCost: 70,
+      stats: [
+        { stat: 'int', perLevel: 1.5 },
+        { stat: 'con', perLevel: 0.5 },
+      ],
+    },
   },
   cleric: {
-    helmet: { key: 'faith_circlet', name: 'Diadema da Fé', baseCost: 40, stat: 'int', perLevel: 1 },
-    chest: { key: 'holy_vestments', name: 'Vestes Sagradas', baseCost: 60, stat: 'con', perLevel: 1 },
-    gloves: { key: 'blessed_gloves', name: 'Luvas Abençoadas', baseCost: 35, stat: 'int', perLevel: 1 },
-    pants: { key: 'temple_pants', name: 'Calças do Templo', baseCost: 45, stat: 'con', perLevel: 1 },
-    boots: { key: 'pilgrim_boots', name: 'Botas do Peregrino', baseCost: 40, stat: 'defense', perLevel: 1.5 },
-    ring1: { key: 'vital_ring', name: 'Anel Vital', baseCost: 55, stat: 'con', perLevel: 1 },
-    ring2: { key: 'spirit_ring', name: 'Anel Espiritual', baseCost: 55, stat: 'int', perLevel: 1 },
-    necklace: { key: 'divine_amulet', name: 'Amuleto Divino', baseCost: 70, stat: 'int', perLevel: 1.5 },
+    helmet: {
+      key: 'faith_circlet',
+      name: 'Diadema da Fé',
+      baseCost: 40,
+      stats: [
+        { stat: 'int', perLevel: 1 },
+        { stat: 'defense', perLevel: 0.5 },
+      ],
+    },
+    chest: {
+      key: 'holy_vestments',
+      name: 'Vestes Sagradas',
+      baseCost: 60,
+      stats: [
+        { stat: 'con', perLevel: 1 },
+        { stat: 'defense', perLevel: 1 },
+      ],
+    },
+    gloves: {
+      key: 'blessed_gloves',
+      name: 'Luvas Abençoadas',
+      baseCost: 35,
+      stats: [
+        { stat: 'int', perLevel: 1 },
+        { stat: 'con', perLevel: 0.5 },
+      ],
+    },
+    pants: {
+      key: 'temple_pants',
+      name: 'Calças do Templo',
+      baseCost: 45,
+      stats: [
+        { stat: 'con', perLevel: 1 },
+        { stat: 'defense', perLevel: 0.5 },
+      ],
+    },
+    boots: {
+      key: 'pilgrim_boots',
+      name: 'Botas do Peregrino',
+      baseCost: 40,
+      stats: [
+        { stat: 'defense', perLevel: 1.5 },
+        { stat: 'con', perLevel: 0.5 },
+      ],
+    },
+    ring1: {
+      key: 'vital_ring',
+      name: 'Anel Vital',
+      baseCost: 55,
+      stats: [
+        { stat: 'con', perLevel: 1 },
+        { stat: 'int', perLevel: 0.5 },
+      ],
+    },
+    ring2: {
+      key: 'spirit_ring',
+      name: 'Anel Espiritual',
+      baseCost: 55,
+      stats: [
+        { stat: 'int', perLevel: 1 },
+        { stat: 'defense', perLevel: 0.5 },
+      ],
+    },
+    necklace: {
+      key: 'divine_amulet',
+      name: 'Amuleto Divino',
+      baseCost: 70,
+      stats: [
+        { stat: 'int', perLevel: 1.5 },
+        { stat: 'con', perLevel: 0.5 },
+      ],
+    },
   },
 });
 
@@ -213,11 +473,30 @@ export function getEquipItem(classId, slot) {
   return CLASS_EQUIP_CATALOG[classId]?.[slot] || null;
 }
 
+/** Normaliza catálogo legado (stat único) ou novo (stats[]). */
+export function getEquipStatEntries(catalog) {
+  if (!catalog) return [];
+  if (Array.isArray(catalog.stats) && catalog.stats.length) {
+    return catalog.stats.map((entry) => ({
+      stat: entry.stat,
+      perLevel: Number(entry.perLevel) || 0,
+    }));
+  }
+  if (catalog.stat) {
+    return [{ stat: catalog.stat, perLevel: Number(catalog.perLevel) || 0 }];
+  }
+  return [];
+}
+
 export function equipBonusAtLevel(classId, slot, itemLevel) {
   const catalog = getEquipItem(classId, slot);
-  if (!catalog) return 0;
+  if (!catalog) return {};
   const lv = Math.max(0, Math.floor(Number(itemLevel) || 0));
-  return catalog.perLevel * lv;
+  const bonus = {};
+  for (const entry of getEquipStatEntries(catalog)) {
+    bonus[entry.stat] = (bonus[entry.stat] || 0) + entry.perLevel * lv;
+  }
+  return bonus;
 }
 
 export function describeEquipStats(classId, slot, itemLevel = 0) {
@@ -225,12 +504,23 @@ export function describeEquipStats(classId, slot, itemLevel = 0) {
   if (!catalog) return null;
   const currentLevel = Math.max(0, Math.floor(Number(itemLevel) || 0));
   const nextLevel = currentLevel + 1;
+  const entries = getEquipStatEntries(catalog);
+  const bonusLines = entries.map((entry) => ({
+    stat: entry.stat,
+    statLabel: STAT_LABELS[entry.stat] || entry.stat.toUpperCase(),
+    perLevel: entry.perLevel,
+    currentBonus: entry.perLevel * currentLevel,
+    nextBonus: entry.perLevel * nextLevel,
+  }));
+
   return {
-    stat: catalog.stat,
-    statLabel: STAT_LABELS[catalog.stat] || catalog.stat.toUpperCase(),
-    perLevel: catalog.perLevel,
-    currentBonus: equipBonusAtLevel(classId, slot, currentLevel),
-    nextBonus: equipBonusAtLevel(classId, slot, nextLevel),
+    bonusLines,
+    // legado (primeiro atributo) — UI nova usa bonusLines
+    stat: bonusLines[0]?.stat,
+    statLabel: bonusLines.map((b) => b.statLabel).join(' · '),
+    perLevel: bonusLines[0]?.perLevel,
+    currentBonus: bonusLines[0]?.currentBonus ?? 0,
+    nextBonus: bonusLines[0]?.nextBonus ?? 0,
   };
 }
 
@@ -289,7 +579,9 @@ export function equipmentBonuses(classId, equipmentRows = []) {
     const catalog = getEquipItem(classId, row.slot);
     if (!catalog) continue;
     const lv = Math.max(1, row.item_level || 1);
-    bonus[catalog.stat] = (bonus[catalog.stat] || 0) + catalog.perLevel * lv;
+    for (const entry of getEquipStatEntries(catalog)) {
+      bonus[entry.stat] = (bonus[entry.stat] || 0) + entry.perLevel * lv;
+    }
   }
   return bonus;
 }

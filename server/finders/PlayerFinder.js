@@ -106,4 +106,22 @@ export default class PlayerFinder {
     }
     return this.findById(playerId);
   }
+
+  static async listRanking(limit = 50) {
+    const safeLimit = Math.min(100, Math.max(1, Math.floor(Number(limit) || 50)));
+    return query(
+      `SELECT p.id,
+              p.display_name,
+              p.global_name,
+              p.avatar,
+              p.discord_id,
+              p.max_floor_record,
+              COALESCE(s.runs, 0) AS runs
+       FROM players p
+       LEFT JOIN player_stats s ON s.player_id = p.id
+       WHERE p.max_floor_record > 0
+       ORDER BY p.max_floor_record DESC, s.runs DESC, p.id ASC
+       LIMIT ${safeLimit}`
+    );
+  }
 }

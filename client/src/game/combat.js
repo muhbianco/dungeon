@@ -74,9 +74,13 @@ export function buildPlayerCombatant(classData, upgrades = {}, options = {}) {
 
   const maxHp = Math.floor((40 + attrs.con * 8) * (1 + hpPct));
   let defense = (attrs.con * 1.2 + equipDefense) * (1 + defPct);
-  // Arqueiro: dano físico escala com DEX; demais classes físicas com STR
-  const physAttr = classData?.id === 'archer' ? attrs.dex : attrs.str;
-  let physical = (physAttr * 2.2) * (1 + physPct);
+  // melee=STR · ranged=DEX · magic=INT
+  const damageStyle = classData?.damageStyle
+    || (classData?.id === 'archer' ? 'ranged'
+      : (classData?.id === 'mage' || classData?.id === 'cleric') ? 'magic'
+        : 'melee');
+  const melee = (attrs.str * 2.2) * (1 + physPct);
+  const ranged = (attrs.dex * 2.2) * (1 + physPct);
   let magic = (attrs.int * 2.4) * (1 + magPct);
   let critChance = 0.04 + attrs.dex * 0.008 + critPctPoints;
   const baseInterval = Math.max(280, 900 - attrs.agi * 35);
@@ -88,7 +92,8 @@ export function buildPlayerCombatant(classData, upgrades = {}, options = {}) {
   if (classData?.id === 'archer') critChance += 0.1;
   if (classData?.id === 'mage') magic *= 1.2;
 
-  const usesMagic = classData?.id === 'mage' || classData?.id === 'cleric';
+  const physical = damageStyle === 'ranged' ? ranged : melee;
+  const attackPower = damageStyle === 'magic' ? magic : physical;
 
   return {
     name: classData?.name || 'Herói',
@@ -97,9 +102,13 @@ export function buildPlayerCombatant(classData, upgrades = {}, options = {}) {
     maxHp,
     hp: maxHp,
     defense,
+    damageStyle,
+    melee,
+    ranged,
     physical,
     magic,
-    usesMagic,
+    attackPower,
+    usesMagic: damageStyle === 'magic',
     critChance: clamp(critChance, 0, 0.55),
     attackIntervalMs,
     regen,
@@ -182,7 +191,7 @@ function rollCrit(chance) {
 }
 
 export function playerAttack(player, enemy) {
-  const base = player.usesMagic ? player.magic : player.physical;
+  const base = player.attackPower ?? (player.usesMagic ? player.magic : player.physical);
   const crit = rollCrit(player.critChance);
   const damage = Math.max(1, Math.floor(base * (crit ? 1.75 : 1) * (0.9 + Math.random() * 0.2)));
   enemy.hp = Math.max(0, enemy.hp - damage);
@@ -190,10 +199,14 @@ export function playerAttack(player, enemy) {
 }
 
 function skillBasePower(player, skill) {
-  const phys = player.physical || 0;
+  const melee = player.melee ?? player.physical ?? 0;
+  const ranged = player.ranged ?? player.physical ?? 0;
   const mag = player.magic || 0;
+  const phys = player.damageStyle === 'ranged' ? ranged : melee;
+
   if (skill.damageType === 'magic') return mag;
   if (skill.damageType === 'hybrid') return (phys + mag) * 0.55;
+  // physical: usa o estilo da classe (melee=STR / ranged=DEX)
   return phys;
 }
 

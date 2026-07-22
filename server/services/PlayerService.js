@@ -377,4 +377,18 @@ export default class PlayerService {
   static async saveSettings(playerId, settings) {
     return SettingsFinder.save(playerId, settings || {});
   }
+
+  static async getRanking(limit = 50) {
+    const rows = await PlayerFinder.listRanking(limit);
+    return rows.map((row, index) => ({
+      rank: index + 1,
+      id: row.id,
+      name: row.global_name || row.display_name || 'Aventureiro',
+      avatar: row.avatar && row.discord_id
+        ? `https://cdn.discordapp.com/avatars/${row.discord_id}/${row.avatar}.${String(row.avatar).startsWith('a_') ? 'gif' : 'png'}?size=64`
+        : null,
+      maxFloor: Number(row.max_floor_record) || 0,
+      runs: Number(row.runs) || 0,
+    }));
+  }
 }

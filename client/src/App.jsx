@@ -11,6 +11,7 @@ const SCREENS = {
   SKILLS: 'skills',
   RUN: 'run',
   GUARDIAN: 'guardian',
+  RANKING: 'ranking',
 };
 
 function skillKindLabel(skill) {
@@ -27,6 +28,11 @@ function formatBonus(n) {
 }
 
 function equipStatLine(item) {
+  if (item?.bonusLines?.length) {
+    return item.bonusLines
+      .map((line) => `${line.statLabel} ${formatBonus(line.currentBonus)} → ${formatBonus(line.nextBonus)}`)
+      .join(' · ');
+  }
   if (!item?.statLabel) return null;
   return `${item.statLabel} ${formatBonus(item.currentBonus)} → ${formatBonus(item.nextBonus)}`;
 }
@@ -68,6 +74,7 @@ export default function App() {
   const [selectedClass, setSelectedClass] = useState(null);
   const [gearClass, setGearClass] = useState(null);
   const [skillsClass, setSkillsClass] = useState(null);
+  const [ranking, setRanking] = useState([]);
   const [error, setError] = useState(authMessageFromQuery());
   const [busy, setBusy] = useState(false);
   const [authConfigured, setAuthConfigured] = useState(true);
@@ -231,6 +238,20 @@ export default function App() {
     }
   }
 
+  async function openRanking() {
+    setBusy(true);
+    setError('');
+    try {
+      const data = await api.ranking();
+      setRanking(data.ranking || []);
+      setScreen(SCREENS.RANKING);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function updateSettings(partial) {
     const next = { ...(profile?.settings || {}), ...partial };
     setProfile((prev) => (prev ? { ...prev, settings: next } : prev));
@@ -313,6 +334,9 @@ export default function App() {
             </button>
             <button type="button" className="ghost" onClick={() => setScreen(SCREENS.GUARDIAN)}>
               Guardião das Almas
+            </button>
+            <button type="button" className="ghost" onClick={openRanking} disabled={busy}>
+              Ranking
             </button>
           </div>
 
@@ -536,6 +560,41 @@ export default function App() {
           </div>
           <div className="actions">
             <button type="button" className="ghost" onClick={() => setScreen(SCREENS.MENU)}>Voltar</button>
+          </div>
+        </section>
+      )}
+
+      {screen === SCREENS.RANKING && (
+        <section className="panel">
+          <h2>Ranking</h2>
+          <p className="muted">Maiores andares alcançados.</p>
+          {ranking.length ? (
+            <div className="ranking-list">
+              {ranking.map((entry) => (
+                <div
+                  key={entry.id}
+                  className={`ranking-row ${entry.id === player?.id ? 'me' : ''}`}
+                >
+                  <span className="rank-pos">#{entry.rank}</span>
+                  {entry.avatar ? (
+                    <img src={entry.avatar} alt="" className="avatar ranking-avatar" />
+                  ) : (
+                    <span className="avatar ranking-avatar placeholder" />
+                  )}
+                  <div className="ranking-info">
+                    <strong>{entry.name}</strong>
+                    <small className="muted">{entry.runs} runs</small>
+                  </div>
+                  <span className="rank-floor">Andar {entry.maxFloor}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="muted">Nenhum recorde ainda. Entre na masmorra!</p>
+          )}
+          <div className="actions">
+            <button type="button" className="ghost" onClick={() => setScreen(SCREENS.MENU)}>Voltar</button>
+            <button type="button" className="ghost" onClick={openRanking} disabled={busy}>Atualizar</button>
           </div>
         </section>
       )}
